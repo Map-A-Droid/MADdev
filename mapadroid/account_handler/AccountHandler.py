@@ -32,8 +32,10 @@ class AccountHandler(AbstractAccountHandler):
     async def get_account(self, device_id: int, purpose: AccountPurpose,
                           location_to_scan: Optional[Location],
                           including_google: bool = True) -> Optional[SettingsPogoauth]:
+        logger.info("Device {} is requesting an account for {}", device_id, purpose)
         async with self._assignment_lock:
             # First, fetch all pogoauth accounts
+            logger.debug("Lock acquired for {} to query database", device_id)
             async with self._db_wrapper as session, session:
                 device_entry: Optional[SettingsDevice] = await SettingsDeviceHelper.get(session,
                                                                                         self._db_wrapper.get_instance_id(),
@@ -98,6 +100,8 @@ class AccountHandler(AbstractAccountHandler):
                 # Expunge is needed to not automatically have attempts to refresh values outside a DB session
                 session.expunge(login_to_use)
                 await session.commit()
+                logger.info("Found account {} ({}) to be used for device {}",
+                            login_to_use.account_id, login_to_use.username, device_id)
                 return login_to_use
             # TODO: try/except
 
