@@ -534,7 +534,7 @@ class PackageImporter(object):
                 try:
                     with zip_data.open(item, 'r') as fh:
                         bytes_of_apk = io.BytesIO(fh.read())
-                        apk = apkutils.APK().from_io(bytes_of_apk).parse_resouce()
+                        apk = apkutils.APK().from_io(bytes_of_apk).parse_resource()
                         manifest = apk.get_manifest()
                         try:
                             self.package_version = manifest['@android:versionName']
