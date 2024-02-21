@@ -95,11 +95,12 @@ class AbstractAccountHandler(ABC):
         pass
 
     @abstractmethod
-    async def is_burnt(self, device_id: int) -> bool:
+    async def is_burnt(self, device_id: int, account_id: Optional[int] = None) -> bool:
         """
 
         Args:
             device_id: The device_id to which an account may be assigned
+            account_id: Optionally the account id of the entry expected
 
         Returns: False if no auth has an assignment to the device or the auth entry was found not to be burnt
 

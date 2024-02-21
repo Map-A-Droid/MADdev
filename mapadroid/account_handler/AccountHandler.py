@@ -115,14 +115,14 @@ class AccountHandler(AbstractAccountHandler):
                 session.add(currently_assigned)
                 await session.commit()
 
-    async def is_burnt(self, device_id: int) -> bool:
+    async def is_burnt(self, device_id: int, account_id: Optional[int] = None) -> bool:
         async with self._db_wrapper as session, session:
             existing_auth: Optional[SettingsPogoauth] = await SettingsPogoauthHelper.get_assigned_to_device(
                 session, device_id=device_id)
-            if not existing_auth:
-                # TODO: Raise?
-                logger.warning("No auth assigned to device to determine whether it's running a burnt account")
-                return False
+            if not existing_auth or existing_auth.account_id != account_id:
+                logger.warning("No auth assigned to device to determine whether it's running a burnt account "
+                               "or the account id deviates")
+                raise ValueError("Missing auth to account or account id deviates")
             logger.info("Checking account {} (ID {}) assigned to {} for whether it was burnt or not",
                         existing_auth.username, existing_auth.account_id,
                         device_id)
