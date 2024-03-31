@@ -1,7 +1,7 @@
 import asyncio
 import re
 from ipaddress import IPv4Address, ip_address
-from typing import Optional
+from typing import Optional, Set
 
 import websockets
 from aiofile import async_open
@@ -188,7 +188,11 @@ class Communicator(AbstractCommunicator):
         topmost = await self.__run_get_gesponse("more topmost app\r\n")
         if topmost is None:
             return False
-        return "com.nianticlabs.pokemongo" in topmost
+        valid_pogo_states: Set[str] = {"com.nianticlabs.pokemongo",
+                                       "ExternalAppBrowserActivity",  # PTC OAuth with Firefox
+                                       "CustomTabActivity"  # PTC OAuth with Chrome
+                                       }
+        return any(x in topmost for x in valid_pogo_states)
 
     async def topmost_app(self) -> Optional[MessageTyping]:
         topmost = await self.__run_get_gesponse("more topmost app\r\n")
