@@ -36,5 +36,7 @@ class AuthMethodEndpoint(AbstractMitmReceiverRootEndpoint):
                 return self._json_response({})
             currently_assigned: Optional[SettingsPogoauth] = await SettingsPogoauthHelper.get_assigned_to_device(
                 session, device_entry.device_id)
-            response = {"method": currently_assigned.login_type}
+
+            response = {"method": str(currently_assigned.login_type) if currently_assigned else ""}
+            logger.success("Instructing {} to use {}", origin, response["method"])
             return self._json_response(response)
