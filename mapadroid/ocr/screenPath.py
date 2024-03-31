@@ -16,8 +16,8 @@ from mapadroid.mapping_manager import MappingManager
 from mapadroid.mapping_manager.MappingManagerDevicemappingKey import \
     MappingManagerDevicemappingKey
 from mapadroid.ocr.screen_type import ScreenType
-from mapadroid.utils.CustomTypes import MessageTyping
 from mapadroid.utils.collections import Location, ScreenCoordinates
+from mapadroid.utils.CustomTypes import MessageTyping
 from mapadroid.utils.madGlobals import MadGlobals, ScreenshotType
 from mapadroid.websocket.AbstractCommunicator import AbstractCommunicator
 from mapadroid.worker.WorkerState import WorkerState
@@ -488,7 +488,8 @@ class WordToScreenMatching(object):
                     logger.debug("Logo image Bounds {}", item.attrib['bounds'])
                     exit_keyboard_x = int(int(match.group(1)) + ((int(match.group(3)) - int(match.group(1))) / 2))
                     exit_keyboard_y = int(int(match.group(2)) + ((int(match.group(4)) - int(match.group(2))) / 2))
-                if item.attrib["resource-id"] == "email":
+                if (item.attrib["resource-id"] == "email"
+                        or ("EditText" in item.attrib["class"] and item.attrib["index"] == "0")):
                     bounds = item.attrib['bounds']
                     logger.info("Found email/login field, clicking, filling, clicking")
                     logger.debug("email-node Bounds {}", item.attrib['bounds'])
@@ -500,7 +501,8 @@ class WordToScreenMatching(object):
                     await self._communicator.enter_text(self._worker_state.active_account.username)
                     await self._communicator.click(exit_keyboard_x, exit_keyboard_y)
                     await asyncio.sleep(2)
-                if item.attrib["resource-id"] == "password":
+                if (item.attrib["resource-id"] == "password"
+                        or ("EditText" in item.attrib["class"] and item.attrib["index"] == "1")):
                     bounds = item.attrib['bounds']
                     logger.debug("password-node Bounds {}", item.attrib['bounds'])
                     logger.info("Found password field, clicking, filling, clicking")
@@ -512,7 +514,8 @@ class WordToScreenMatching(object):
                     await self._communicator.enter_text(self._worker_state.active_account.password)
                     await self._communicator.click(exit_keyboard_x, exit_keyboard_y)
                     await asyncio.sleep(2)
-                if item.attrib["resource-id"] == "accept":
+                if "Button" in item.attrib["class"] and (item.attrib["resource-id"] == "accept"
+                                                         or item.attrib["text"] in ("Anmelden", "Log In")):
                     bounds = item.attrib['bounds']
                     logger.info("Found Log In button")
                     logger.debug("accept-node Bounds {}", item.attrib['bounds'])
