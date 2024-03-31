@@ -190,7 +190,9 @@ class Communicator(AbstractCommunicator):
             return False
         valid_pogo_states: Set[str] = {"com.nianticlabs.pokemongo",
                                        "ExternalAppBrowserActivity",  # PTC OAuth with Firefox
-                                       "CustomTabActivity"  # PTC OAuth with Chrome
+                                       "CustomTabActivity",  # PTC OAuth with Chrome
+                                       "AccountPickerActivity",  # Google login related
+                                       "SignInActivity"  # Google login related
                                        }
         return any(x in topmost for x in valid_pogo_states)
 
