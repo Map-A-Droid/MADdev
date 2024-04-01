@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 import re
 import time
 import xml.etree.ElementTree as ET  # noqa: N817
@@ -181,7 +182,8 @@ class WordToScreenMatching(object):
                     await asyncio.sleep(5)
                     return
 
-    async def _fetch_auth_details(self):
+    async def _fetch_auth_details(self) -> None:
+        logger.debug("Checking for a new account")
         last_used_account_valid: bool = False
         try:
             last_used_account_valid = (self._worker_state.active_account
@@ -495,14 +497,24 @@ class WordToScreenMatching(object):
             # Changing it to (300, 300), but also detecting big logo image on website and taking this as new coords
             exit_keyboard_x: int = 300
             exit_keyboard_y: int = 300
+
+            waf_detected: bool = False
+
             for item in xmlroot.iter('node'):
-                if item.attrib["class"] == "android.widget.Image":
+                if "Access denied" in item.attrib["text"]:
+                    logger.warning("WAF on PTC login attempt detected")
+                    # Reload the page 1-3 times
+                    for i in range(random.randint(1,3)):
+                        logger.info("Reload #{}", i)
+                        await self.__handle_ptc_waf()
+                    return ScreenType.PTC
+                elif item.attrib["class"] == "android.widget.Image":
                     bounds = item.attrib['bounds']
                     match = re.search(r'^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$', bounds)
                     logger.debug("Logo image Bounds {}", item.attrib['bounds'])
                     exit_keyboard_x = int(int(match.group(1)) + ((int(match.group(3)) - int(match.group(1))) / 2))
                     exit_keyboard_y = int(int(match.group(2)) + ((int(match.group(4)) - int(match.group(2))) / 2))
-                if (item.attrib["resource-id"] == "email"
+                elif (item.attrib["resource-id"] == "email"
                         or ("EditText" in item.attrib["class"] and item.attrib["index"] == "0")):
                     bounds = item.attrib['bounds']
                     logger.info("Found email/login field, clicking, filling, clicking")
@@ -515,7 +527,7 @@ class WordToScreenMatching(object):
                     await self._communicator.enter_text(self._worker_state.active_account.username)
                     await self._communicator.click(exit_keyboard_x, exit_keyboard_y)
                     await asyncio.sleep(2)
-                if (item.attrib["resource-id"] == "password"
+                elif (item.attrib["resource-id"] == "password"
                         or ("EditText" in item.attrib["class"] and item.attrib["index"] == "1")):
                     bounds = item.attrib['bounds']
                     logger.debug("password-node Bounds {}", item.attrib['bounds'])
@@ -528,7 +540,7 @@ class WordToScreenMatching(object):
                     await self._communicator.enter_text(self._worker_state.active_account.password)
                     await self._communicator.click(exit_keyboard_x, exit_keyboard_y)
                     await asyncio.sleep(2)
-                if "Button" in item.attrib["class"] and (item.attrib["resource-id"] == "accept"
+                elif "Button" in item.attrib["class"] and (item.attrib["resource-id"] == "accept"
                                                          or item.attrib["text"] in ("Anmelden", "Log In")):
                     bounds = item.attrib['bounds']
                     logger.info("Found Log In button")
@@ -1067,3 +1079,23 @@ class WordToScreenMatching(object):
     async def clear_game_data(self):
         await self._communicator.reset_app_data("com.nianticlabs.pokemongo")
         await self._account_handler.notify_logout(self._worker_state.device_id)
+
+    async def __handle_ptc_waf(self) -> None:
+        """
+        The WAF was either triggered at random (happens) and a simple reload is needed or the IP was blacklisted.
+        Let's pull down the page to trigger a reload.
+        """
+        # First fetch the bounds, then randomly pick an X coordinate roughly around the center +-10% (random)
+        # Then, fetch y of upper 10-20% part
+        # swipe down for half the screen with mildly varying X coordinate as target to randomize swipes
+        center_x: int = int(self._worker_state.resolution_calculator.screen_size_x / 2)
+        upper_x: int = random.randint(int(center_x * 0.9), int(center_x * 1.1))
+        lower_x: int = random.randint(int(center_x * 0.9), int(center_x * 1.1))
+
+        upper_y: int = random.randint(int(self._worker_state.resolution_calculator.screen_size_y * 0.2),
+                                      int(self._worker_state.resolution_calculator.screen_size_y * 0.35))
+        lower_y: int = random.randint(int(self._worker_state.resolution_calculator.screen_size_y * 0.5),
+                                      int(self._worker_state.resolution_calculator.screen_size_y * 0.65))
+        swipe_duration: int = random.randint(800, 1500)
+        await self._communicator.touch_and_hold(upper_x, upper_y, lower_x, lower_y, swipe_duration)
+        # Returning ScreenType PTC for now to re-evaluate

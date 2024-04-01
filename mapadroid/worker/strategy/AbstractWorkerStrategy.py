@@ -330,6 +330,7 @@ class AbstractWorkerStrategy(ABC):
                 logger.debug2("Found pogo or questlog to be open")
                 break
 
+            # TODO: Evaluate constant loop of errors, e.g., PTC / WAF?
             if screen_type != ScreenType.ERROR and self._worker_state.last_screen_type == screen_type:
                 self._worker_state.same_screen_count += 1
                 logger.info("Found {} multiple times in a row ({})", screen_type, self._worker_state.same_screen_count)
