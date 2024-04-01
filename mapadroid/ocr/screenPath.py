@@ -102,48 +102,6 @@ class WordToScreenMatching(object):
         temp_dict: dict = {}
         n_boxes = len(global_dict['text'])
         logger.debug("Selecting login with: {}", global_dict)
-        last_used_account_valid: bool = False
-        try:
-            last_used_account_valid = (self._worker_state.active_account
-                                       and await self._account_handler.is_burnt(self._worker_state.device_id,
-                                                                                self._worker_state.active_account.account_id))
-        except ValueError as e:
-            logger.warning("Account last used does not match the assignment of accounts stored in DB")
-            self._worker_state.active_account = None
-            self._worker_state.active_account_last_set = 0
-        if self._worker_state.active_account_last_set + 300 < time.time() or not last_used_account_valid:
-            logger.info("Detected login screen, fetching new account to use since last account was assigned more "
-                        "than 5 minutes ago OR current account was marked burnt")
-            location_to_scan: Optional[Location] = None
-            if not location_to_scan \
-                    or self._worker_state.current_location.lat == 0 and self._worker_state.current_location.lng == 0:
-                # Default location, use the middle of the geofence...
-                geofence_helper: Optional[GeofenceHelper] = await self._mapping_manager \
-                    .routemanager_get_geofence_helper(self._worker_state.area_id)
-                if geofence_helper:
-                    lat, lon = geofence_helper.get_middle_from_fence()
-                    location_to_scan = Location(lat, lon)
-            else:
-                location_to_scan = self._worker_state.current_location
-
-            account_to_use: Optional[SettingsPogoauth] = await self._account_handler.get_account(
-                self._worker_state.device_id,
-                await self._mapping_manager.routemanager_get_purpose_of_device(self._worker_state.area_id),
-                location_to_scan
-            )
-            if not account_to_use:
-                logger.error("No account to use found, are there too few accounts in DB or did MAD screw up here? "
-                             "Please make sure accounts in MADmin->Settings->Pogo Auth have correct level set - edit "
-                             "it manually if imported with 0/1 - MAD does not (auto)login to check levels "
-                             "(unless levelmode is active.")
-                self._worker_state.active_account = None
-                self._worker_state.active_account_last_set = 0
-            else:
-                logger.info("Account for {}: {}", self._worker_state.origin, account_to_use.username)
-                self._worker_state.active_account = account_to_use
-                self._worker_state.active_account_last_set = int(time.time())
-        else:
-            logger.info("Account was set recently and is still assigned to device {} in DB")
         if not self._worker_state.active_account:
             logger.error("No account set for device, sleeping 30s")
             await asyncio.sleep(30)
@@ -223,6 +181,50 @@ class WordToScreenMatching(object):
                     await asyncio.sleep(5)
                     return
 
+    async def _fetch_auth_details(self):
+        last_used_account_valid: bool = False
+        try:
+            last_used_account_valid = (self._worker_state.active_account
+                                       and await self._account_handler.is_burnt(self._worker_state.device_id,
+                                                                                self._worker_state.active_account.account_id))
+        except ValueError as e:
+            logger.warning("Account last used does not match the assignment of accounts stored in DB")
+            self._worker_state.active_account = None
+            self._worker_state.active_account_last_set = 0
+        if self._worker_state.active_account_last_set + 300 < time.time() or not last_used_account_valid:
+            logger.info("Detected login screen, fetching new account to use since last account was assigned more "
+                        "than 5 minutes ago OR current account was marked burnt")
+            location_to_scan: Optional[Location] = None
+            if not location_to_scan \
+                    or self._worker_state.current_location.lat == 0 and self._worker_state.current_location.lng == 0:
+                # Default location, use the middle of the geofence...
+                geofence_helper: Optional[GeofenceHelper] = await self._mapping_manager \
+                    .routemanager_get_geofence_helper(self._worker_state.area_id)
+                if geofence_helper:
+                    lat, lon = geofence_helper.get_middle_from_fence()
+                    location_to_scan = Location(lat, lon)
+            else:
+                location_to_scan = self._worker_state.current_location
+
+            account_to_use: Optional[SettingsPogoauth] = await self._account_handler.get_account(
+                self._worker_state.device_id,
+                await self._mapping_manager.routemanager_get_purpose_of_device(self._worker_state.area_id),
+                location_to_scan
+            )
+            if not account_to_use:
+                logger.error("No account to use found, are there too few accounts in DB or did MAD screw up here? "
+                             "Please make sure accounts in MADmin->Settings->Pogo Auth have correct level set - edit "
+                             "it manually if imported with 0/1 - MAD does not (auto)login to check levels "
+                             "(unless levelmode is active.")
+                self._worker_state.active_account = None
+                self._worker_state.active_account_last_set = 0
+            else:
+                logger.info("Account for {}: {}", self._worker_state.origin, account_to_use.username)
+                self._worker_state.active_account = account_to_use
+                self._worker_state.active_account_last_set = int(time.time())
+        else:
+            logger.info("Account was set recently and is still assigned to device {} in DB")
+
     async def check_ptc_login_ban(self, increment_count: bool = True) -> bool:
         """
         Checks whether a PTC login is currently permissible.
@@ -258,12 +260,15 @@ class WordToScreenMatching(object):
         if screentype == ScreenType.UNDEFINED:
             logger.warning("Undefined screentype, abandon ship...")
         elif screentype == ScreenType.BIRTHDATE:
+            await self._fetch_auth_details()
             await self.__handle_birthday_screen()
         elif screentype == ScreenType.RETURNING:
             await self.__handle_returning_player_or_wrong_credentials()
         elif screentype == ScreenType.LOGINSELECT:
+            await self._fetch_auth_details()
             await self.__handle_login_screen(global_dict, diff)
         elif screentype == ScreenType.PTC:
+            await self._fetch_auth_details()
             return await self.__handle_ptc_login()
         elif screentype == ScreenType.FAILURE:
             await self.__handle_failure_screen()
@@ -414,7 +419,11 @@ class WordToScreenMatching(object):
     async def __handle_google_login(self, screentype) -> ScreenType:
         self._nextscreen = ScreenType.UNDEFINED
         usernames: Optional[str] = None
-        if self._worker_state.active_account and self._worker_state.active_account.login_type == LoginType.ptc.name:
+        if not self._worker_state.active_account:
+            logger.error("No account set for device, sleeping 30s")
+            await asyncio.sleep(30)
+            return ScreenType.ERROR
+        elif self._worker_state.active_account and self._worker_state.active_account.login_type == LoginType.ptc.name:
             logger.warning('Really dont know how i get there ... using first @ggl address ... :)')
             usernames: Optional[str] = await self.get_devicesettings_value(
                 MappingManagerDevicemappingKey.GGL_LOGIN_MAIL, '@gmail.com')
@@ -466,6 +475,11 @@ class WordToScreenMatching(object):
         if not self._worker_state.active_account:
             logger.error('No PTC Username and Password is set')
             return ScreenType.ERROR
+        elif self._worker_state.active_account.login_type == LoginType.ptc.google:
+            logger.warning("PTC login was opened but google login is expected, restarting pogo")
+            await self._communicator.restart_app("com.nianticlabs.pokemongo")
+            await asyncio.sleep(50)
+            return ScreenType.GGL
         xml: Optional[MessageTyping] = await self._communicator.uiautomator()
         if xml is None:
             logger.warning('Something wrong with processing - getting None Type from Websocket...')
@@ -538,18 +552,19 @@ class WordToScreenMatching(object):
             if accept_x and accept_y:
                 await self._communicator.click(accept_x, accept_y)
                 logger.info("Clicking Log In and sleeping 50 seconds - please wait!")
-                await asyncio.sleep(120)
-                # Start pogodroid service again to make sure we are running PD properly here
-                await self._communicator.passthrough(
-                    "su -c 'am broadcast -a com.mad.pogodroid.SET_INTENTIONAL_STOP -c android.intent.category.DEFAULT -n com.mad.pogodroid/.IntentionalStopSetterReceiver --ez value false'")
-                await asyncio.sleep(2)
-                await self._communicator.passthrough(
-                    "su -c 'am start-foreground-service -n com.mad.pogodroid/.services.HookReceiverService'")
-                await asyncio.sleep(5)
-                await self._communicator.stop_app("com.nianticlabs.pokemongo")
-                await asyncio.sleep(10)
-                await self._communicator.start_app("com.nianticlabs.pokemongo")
-                await asyncio.sleep(120)
+                await asyncio.sleep(50)
+                if await self.get_devicesettings_value(MappingManagerDevicemappingKey.EXTENDED_LOGIN, False):
+                    # Start pogodroid service again to make sure we are running PD properly here
+                    await self._communicator.passthrough(
+                        "su -c 'am broadcast -a com.mad.pogodroid.SET_INTENTIONAL_STOP -c android.intent.category.DEFAULT -n com.mad.pogodroid/.IntentionalStopSetterReceiver --ez value false'")
+                    await asyncio.sleep(2)
+                    await self._communicator.passthrough(
+                        "su -c 'am start-foreground-service -n com.mad.pogodroid/.services.HookReceiverService'")
+                    await asyncio.sleep(5)
+                    await self._communicator.stop_app("com.nianticlabs.pokemongo")
+                    await asyncio.sleep(10)
+                    await self._communicator.start_app("com.nianticlabs.pokemongo")
+                    await asyncio.sleep(120)
                 return ScreenType.PTC
             else:
                 logger.error("Log in [accept] button not found?")
