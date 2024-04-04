@@ -22,7 +22,7 @@ class InitTypes(Enum):
 
 
 # Rural areas may not be populated with forts but wild or nearby mons...
-KEY_TO_CHECK_FORTS: List[str] = ["forts", "wild_pokemon", "nearby_pokemon"]
+KEY_TO_CHECK_FORTS: List[str] = ["fort", "wild_pokemon", "nearby_pokemon"]
 
 
 class WorkerInitStrategy(AbstractWorkerMitmStrategy):

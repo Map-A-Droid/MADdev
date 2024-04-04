@@ -464,12 +464,12 @@ class AbstractMitmBaseStrategy(AbstractWorkerStrategy, ABC):
         else:
             keys.extend(keys_in_cell)
         cells: RepeatedCompositeFieldContainer[pogoprotos.ClientMapCellProto] = gmo.map_cell
-        if not cells or not isinstance(cells, RepeatedCompositeFieldContainer):
+        if not cells:
             return False
         for cell in cells:
             for key in keys:
                 value_of_key: Optional[Any] = getattr(cell, key, None)
-                if value_of_key and isinstance(value_of_key, list) and len(value_of_key) > 0:
+                if value_of_key and len(value_of_key) > 0:
                     return True
         return False
 

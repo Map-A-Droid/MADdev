@@ -37,7 +37,7 @@ class WorkerRaidsStrategy(AbstractWorkerMitmStrategy):
             return ReceivedType.UNDEFINED, data_found
         elif proto_to_wait_for == ProtoIdentifier.GMO:
             gmo: pogoprotos.GetMapObjectsOutProto = ProtoHelper.parse(ProtoIdentifier.GMO, latest_proto_data)
-            if self._gmo_cells_contain_multiple_of_key(gmo, "forts"):
+            if self._gmo_cells_contain_multiple_of_key(gmo, "fort"):
                 data_found = latest_proto_data
                 type_of_data_found = ReceivedType.GMO
             else:

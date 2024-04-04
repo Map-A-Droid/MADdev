@@ -368,7 +368,7 @@ def parse_args():
                         dest='autoconfig_no_auth')
 
     # PTC Login tracking
-    parser.add_argument('-ips', '--ip_service', default='http://ifconfig.me',
+    parser.add_argument('-ips', '--ip_service', default='https://checkip.amazonaws.com',
                         help=('Host to use to request the external IPv4 address of the device. '
                               'MAD will search for the first IPv4 address via regex.'))
     parser.add_argument('-elt', '--enable_login_tracking', action='store_true', default=False,
