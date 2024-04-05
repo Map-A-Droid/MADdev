@@ -714,7 +714,7 @@ class DbPogoProtoSubmitRaw:
         condition: RepeatedCompositeFieldContainer[pogoprotos.QuestConditionProto] = goal.condition
 
         # TODO: Json dumping protos...
-        json_condition: str = json.dumps(condition)
+        json_condition: str = ProtoHelper.to_json(condition)
         task = await quest_gen.questtask(int(quest_type), json_condition, int(target), quest_template,
                                          quest_title_resource_id)
         quest: Optional[TrsQuest] = await TrsQuestHelper.get(session, fort_id, quest_layer)
