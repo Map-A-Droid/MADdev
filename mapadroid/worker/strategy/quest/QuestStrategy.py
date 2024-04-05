@@ -578,11 +578,11 @@ class QuestStrategy(AbstractMitmBaseStrategy, ABC):
     async def _current_position_has_spinnable_stop(self, timestamp: float) -> PositionStopType:
         type_received, data_received, time_received = await self._wait_for_data_after_moving(timestamp,
                                                                                              ProtoIdentifier.GMO, 35)
-        if (type_received != ReceivedType.GMO or data_received is None
-                or not isinstance(data_received, pogoprotos.GetMapObjectsOutProto)):
+        if type_received != ReceivedType.GMO or data_received is None:
             await self._spinnable_data_failure()
             return PositionStopType.GMO_NOT_AVAILABLE
-        latest_proto: pogoprotos.GetMapObjectsOutProto = data_received
+
+        latest_proto: pogoprotos.GetMapObjectsOutProto = ProtoHelper.parse(ProtoIdentifier.GMO, data_received)
 
         if not latest_proto.map_cell:
             logger.warning("Can't spin stop - no map info in GMO!")
