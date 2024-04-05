@@ -5,7 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union, Any
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 from loguru import logger
@@ -13,6 +13,7 @@ from s2sphere import CellId
 from sqlalchemy import exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
 from mapadroid.data_handler.mitm_data.AbstractMitmMapper import \
     AbstractMitmMapper
 from mapadroid.data_handler.mitm_data.holder.latest_mitm_data.LatestMitmDataEntry import \
@@ -50,7 +51,6 @@ from mapadroid.worker.ReceivedTypeEnum import ReceivedType
 from mapadroid.worker.strategy.AbstractMitmBaseStrategy import \
     AbstractMitmBaseStrategy
 from mapadroid.worker.WorkerState import WorkerState
-import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
 
 # The diff to lat/lng values to consider that the worker is standing on top of the stop
 S2_GMO_CELL_LEVEL = 15
@@ -578,11 +578,10 @@ class QuestStrategy(AbstractMitmBaseStrategy, ABC):
     async def _current_position_has_spinnable_stop(self, timestamp: float) -> PositionStopType:
         type_received, data_received, time_received = await self._wait_for_data_after_moving(timestamp,
                                                                                              ProtoIdentifier.GMO, 35)
-        if (type_received != ReceivedType.GMO or data_received is None
-                or not isinstance(data_received, pogoprotos.GetMapObjectsOutProto)):
+        if type_received != ReceivedType.GMO or data_received is None:
             await self._spinnable_data_failure()
             return PositionStopType.GMO_NOT_AVAILABLE
-        latest_proto: pogoprotos.GetMapObjectsOutProto = data_received
+        latest_proto: pogoprotos.GetMapObjectsOutProto = ProtoHelper.parse(ProtoIdentifier.GMO, data_received)
 
         if not latest_proto.map_cell:
             logger.warning("Can't spin stop - no map info in GMO!")
