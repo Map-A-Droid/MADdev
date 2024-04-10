@@ -92,11 +92,7 @@ class ReceiveProtosEndpoint(AbstractMitmReceiverRootEndpoint):
         # TODO: dataclass for data passed in
         decoded_raw_proto: bytes = ProtoHelper.decode(data["payload"])
         data["payload"] = decoded_raw_proto
-        await self._get_mitm_mapper().update_latest(origin, timestamp_received_raw=timestamp,
-                                                    timestamp_received_receiver=time_received,
-                                                    key=str(proto_type),
-                                                    value=decoded_raw_proto,
-                                                    location=location_of_data)
+
         if proto_type == ProtoIdentifier.GMO.value:
             # TODO: Offload transformation
             gmo: pogoprotos.GetMapObjectsOutProto = ProtoHelper.parse(ProtoIdentifier.GMO, decoded_raw_proto)
