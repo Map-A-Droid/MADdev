@@ -125,7 +125,8 @@ class StrategyFactory:
                                    word_to_screen_matching=word_to_screen_matching,
                                    pogo_windows_handler=self.__pogo_windows,
                                    walker=walker_settings,
-                                   worker_state=worker_state)
+                                   worker_state=worker_state,
+                                   account_handler=self.__account_handler)
         elif worker_type == WorkerType.INIT:
             strategy = WorkerInitStrategy(area_id=area_id,
                                           communicator=communicator, mapping_manager=self.__mapping_manager,
@@ -135,7 +136,8 @@ class StrategyFactory:
                                           walker=walker_settings,
                                           worker_state=worker_state,
                                           mitm_mapper=self.__mitm_mapper,
-                                          stats_handler=self.__stats_handler)
+                                          stats_handler=self.__stats_handler,
+                                          account_handler=self.__account_handler)
         elif worker_type == WorkerType.IV_MITM:
             strategy = WorkerMonIvStrategy(area_id=area_id,
                                            communicator=communicator, mapping_manager=self.__mapping_manager,
@@ -145,7 +147,8 @@ class StrategyFactory:
                                            walker=walker_settings,
                                            worker_state=worker_state,
                                            mitm_mapper=self.__mitm_mapper,
-                                           stats_handler=self.__stats_handler)
+                                           stats_handler=self.__stats_handler,
+                                           account_handler=self.__account_handler)
         elif worker_type == WorkerType.MON_MITM:
             strategy = WorkerMonMitmStrategy(area_id=area_id,
                                              communicator=communicator, mapping_manager=self.__mapping_manager,
@@ -155,7 +158,8 @@ class StrategyFactory:
                                              walker=walker_settings,
                                              worker_state=worker_state,
                                              mitm_mapper=self.__mitm_mapper,
-                                             stats_handler=self.__stats_handler)
+                                             stats_handler=self.__stats_handler,
+                                             account_handler=self.__account_handler)
         elif worker_type == WorkerType.RAID_MITM:
             strategy = WorkerRaidsStrategy(area_id=area_id,
                                            communicator=communicator, mapping_manager=self.__mapping_manager,
@@ -165,7 +169,8 @@ class StrategyFactory:
                                            walker=walker_settings,
                                            worker_state=worker_state,
                                            mitm_mapper=self.__mitm_mapper,
-                                           stats_handler=self.__stats_handler)
+                                           stats_handler=self.__stats_handler,
+                                           account_handler=self.__account_handler)
         elif worker_type == WorkerType.STOPS:
             layer_to_scan: Optional[int] = await self.__mapping_manager.routemanager_get_quest_layer_to_scan(area_id)
             if not await self.__mapping_manager.routemanager_is_levelmode(area_id):
@@ -182,7 +187,8 @@ class StrategyFactory:
                                                 walker=walker_settings,
                                                 worker_state=worker_state,
                                                 mitm_mapper=self.__mitm_mapper,
-                                                stats_handler=self.__stats_handler)
+                                                stats_handler=self.__stats_handler,
+                                                account_handler=self.__account_handler)
             else:
                 strategy = NonARQuestLayerStrategy(area_id=area_id,
                                                    communicator=communicator, mapping_manager=self.__mapping_manager,
@@ -192,7 +198,8 @@ class StrategyFactory:
                                                    walker=walker_settings,
                                                    worker_state=worker_state,
                                                    mitm_mapper=self.__mitm_mapper,
-                                                   stats_handler=self.__stats_handler)
+                                                   stats_handler=self.__stats_handler,
+                                                   account_handler=self.__account_handler)
         else:
             logger.error("WorkerFactor::get_worker failed to create a worker...")
         return strategy

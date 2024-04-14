@@ -1,3 +1,4 @@
+from mapadroid.account_handler import AbstractAccountHandler
 from mapadroid.data_handler.mitm_data.AbstractMitmMapper import \
     AbstractMitmMapper
 from mapadroid.data_handler.stats.AbstractStatsHandler import \
@@ -9,8 +10,8 @@ from mapadroid.ocr.pogoWindows import PogoWindows
 from mapadroid.ocr.screenPath import WordToScreenMatching
 from mapadroid.utils.madGlobals import QuestLayer
 from mapadroid.websocket.AbstractCommunicator import AbstractCommunicator
-from mapadroid.worker.WorkerState import WorkerState
 from mapadroid.worker.strategy.quest.QuestStrategy import QuestStrategy
+from mapadroid.worker.WorkerState import WorkerState
 
 
 class ARQuestLayerStrategy(QuestStrategy):
@@ -21,10 +22,11 @@ class ARQuestLayerStrategy(QuestStrategy):
                  walker: SettingsWalkerarea,
                  worker_state: WorkerState,
                  mitm_mapper: AbstractMitmMapper,
-                 stats_handler: AbstractStatsHandler):
+                 stats_handler: AbstractStatsHandler,
+                 account_handler: AbstractAccountHandler):
         super().__init__(area_id, communicator, mapping_manager, db_wrapper, word_to_screen_matching,
                          pogo_windows_handler, walker, worker_state,
-                         mitm_mapper, stats_handler, QuestLayer.AR)
+                         mitm_mapper, stats_handler, QuestLayer.AR, account_handler=account_handler)
 
     async def pre_work_loop_layer_preparation(self) -> None:
         vps_delay: int = await self._get_vps_delay()

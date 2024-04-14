@@ -14,6 +14,7 @@ from sqlalchemy import exc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
+from mapadroid.account_handler import AbstractAccountHandler
 from mapadroid.data_handler.mitm_data.AbstractMitmMapper import \
     AbstractMitmMapper
 from mapadroid.data_handler.mitm_data.holder.latest_mitm_data.LatestMitmDataEntry import \
@@ -90,7 +91,8 @@ class QuestStrategy(AbstractMitmBaseStrategy, ABC):
                  worker_state: WorkerState,
                  mitm_mapper: AbstractMitmMapper,
                  stats_handler: AbstractStatsHandler,
-                 quest_layer_to_scan: QuestLayer):
+                 quest_layer_to_scan: QuestLayer,
+                 account_handler: AbstractAccountHandler):
         super().__init__(area_id=area_id,
                          communicator=communicator, mapping_manager=mapping_manager,
                          db_wrapper=db_wrapper,
@@ -99,7 +101,8 @@ class QuestStrategy(AbstractMitmBaseStrategy, ABC):
                          walker=walker,
                          worker_state=worker_state,
                          mitm_mapper=mitm_mapper,
-                         stats_handler=stats_handler)
+                         stats_handler=stats_handler,
+                         account_handler=account_handler)
         self._ready_for_scan: asyncio.Event = asyncio.Event()
 
         self._spinnable_data_failcount = 0

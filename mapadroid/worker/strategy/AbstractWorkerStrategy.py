@@ -6,11 +6,14 @@ from typing import Any, List, Optional
 
 from loguru import logger
 
+from mapadroid.account_handler import (AbstractAccountHandler,
+                                       fetch_auth_details)
 from mapadroid.data_handler.stats.AbstractStatsHandler import \
     AbstractStatsHandler
 from mapadroid.db.DbWrapper import DbWrapper
 from mapadroid.db.helper.TrsStatusHelper import TrsStatusHelper
-from mapadroid.db.model import SettingsWalkerarea
+from mapadroid.db.model import SettingsPogoauth, SettingsWalkerarea
+from mapadroid.geofence.geofenceHelper import GeofenceHelper
 from mapadroid.mapping_manager.MappingManager import MappingManager
 from mapadroid.mapping_manager.MappingManagerDevicemappingKey import \
     MappingManagerDevicemappingKey
@@ -38,6 +41,7 @@ class AbstractWorkerStrategy(ABC):
                  pogo_windows_handler: PogoWindows,
                  walker: SettingsWalkerarea,
                  worker_state: WorkerState,
+                 account_handler: AbstractAccountHandler,
                  stats_handler: Optional[AbstractStatsHandler] = None):
         self._stats_handler: Optional[AbstractStatsHandler] = stats_handler
         self._area_id: int = area_id
@@ -48,6 +52,7 @@ class AbstractWorkerStrategy(ABC):
         self._pogo_windows_handler: PogoWindows = pogo_windows_handler
         self._walker: SettingsWalkerarea = walker
         self._worker_state: WorkerState = worker_state
+        self._account_handler: AbstractAccountHandler = account_handler
 
     def get_communicator(self) -> AbstractCommunicator:
         return self._communicator
@@ -214,7 +219,9 @@ class AbstractWorkerStrategy(ABC):
             logger.info(f"logintype is {self._worker_state.active_account.login_type}")
         else:
             logger.warning("No active account set when starting pogo")
-            # TODO: Immediately assign a new account?
+            await fetch_auth_details(mapping_manager=self._mapping_manager,
+                                     worker_state=self._worker_state,
+                                     account_handler=self._account_handler)
 
         if self._worker_state.active_account and self._worker_state.active_account.login_type == LoginType.ptc.name\
                 and MadGlobals.application_args.enable_login_tracking:

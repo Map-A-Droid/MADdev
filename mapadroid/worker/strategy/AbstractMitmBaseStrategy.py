@@ -3,6 +3,7 @@ import sys
 
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 
+from mapadroid.account_handler import AbstractAccountHandler
 from mapadroid.db.helper.PokemonHelper import PokemonHelper
 
 if sys.version_info.major == 3 and sys.version_info.minor >= 10:
@@ -13,10 +14,11 @@ else:
 import math
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Set, Tuple, Union, Any
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from loguru import logger
 
+import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
 from mapadroid.data_handler.mitm_data.AbstractMitmMapper import \
     AbstractMitmMapper
 from mapadroid.data_handler.mitm_data.holder.latest_mitm_data.LatestMitmDataEntry import \
@@ -48,7 +50,6 @@ from mapadroid.worker.strategy.AbstractWorkerStrategy import \
     AbstractWorkerStrategy
 from mapadroid.worker.WorkerState import WorkerState
 from mapadroid.worker.WorkerType import WorkerType
-import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
 
 
 class AbstractMitmBaseStrategy(AbstractWorkerStrategy, ABC):
@@ -59,7 +60,8 @@ class AbstractMitmBaseStrategy(AbstractWorkerStrategy, ABC):
                  walker: SettingsWalkerarea,
                  worker_state: WorkerState,
                  mitm_mapper: AbstractMitmMapper,
-                 stats_handler: AbstractStatsHandler):
+                 stats_handler: AbstractStatsHandler,
+                 account_handler: AbstractAccountHandler):
         super().__init__(area_id=area_id,
                          communicator=communicator, mapping_manager=mapping_manager,
                          db_wrapper=db_wrapper,
@@ -67,6 +69,7 @@ class AbstractMitmBaseStrategy(AbstractWorkerStrategy, ABC):
                          pogo_windows_handler=pogo_windows_handler,
                          walker=walker,
                          worker_state=worker_state,
+                         account_handler=account_handler,
                          stats_handler=stats_handler)
         self._mitm_mapper: AbstractMitmMapper = mitm_mapper
         # TODO: Consider placement

@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple
 
 from loguru import logger
 
+from mapadroid.account_handler import fetch_auth_details
 from mapadroid.account_handler.AbstractAccountHandler import (
     AbstractAccountHandler, BurnType)
 from mapadroid.db.model import SettingsPogoauth
@@ -182,48 +183,6 @@ class WordToScreenMatching(object):
                     await asyncio.sleep(5)
                     return
 
-    async def _fetch_auth_details(self) -> None:
-        logger.debug("Checking for a new account")
-        last_used_account_valid: bool = False
-        try:
-            last_used_account_valid = (self._worker_state.active_account
-                                       and await self._account_handler.is_burnt(self._worker_state.device_id,
-                                                                                self._worker_state.active_account.account_id))
-        except ValueError as e:
-            logger.warning("Account last used does not match the assignment of accounts stored in DB")
-            self._worker_state.active_account = None
-        if self._worker_state.active_account_last_set + 300 < time.time() or not last_used_account_valid:
-            logger.info("Detected login screen, fetching new account to use since last account was assigned more "
-                        "than 5 minutes ago OR current account was marked burnt")
-            location_to_scan: Optional[Location] = None
-            if not location_to_scan \
-                    or self._worker_state.current_location.lat == 0 and self._worker_state.current_location.lng == 0:
-                # Default location, use the middle of the geofence...
-                geofence_helper: Optional[GeofenceHelper] = await self._mapping_manager \
-                    .routemanager_get_geofence_helper(self._worker_state.area_id)
-                if geofence_helper:
-                    lat, lon = geofence_helper.get_middle_from_fence()
-                    location_to_scan = Location(lat, lon)
-            else:
-                location_to_scan = self._worker_state.current_location
-
-            account_to_use: Optional[SettingsPogoauth] = await self._account_handler.get_account(
-                self._worker_state.device_id,
-                await self._mapping_manager.routemanager_get_purpose_of_device(self._worker_state.area_id),
-                location_to_scan
-            )
-            if not account_to_use:
-                logger.error("No account to use found, are there too few accounts in DB or did MAD screw up here? "
-                             "Please make sure accounts in MADmin->Settings->Pogo Auth have correct level set - edit "
-                             "it manually if imported with 0/1 - MAD does not (auto)login to check levels "
-                             "(unless levelmode is active.")
-                self._worker_state.active_account = None
-            else:
-                logger.info("Account for {}: {}", self._worker_state.origin, account_to_use.username)
-                self._worker_state.active_account = account_to_use
-        else:
-            logger.info("Account was set recently and is still assigned to device {} in DB")
-
     async def check_ptc_login_ban(self, increment_count: bool = True) -> bool:
         """
         Checks whether a PTC login is currently permissible.
@@ -259,15 +218,21 @@ class WordToScreenMatching(object):
         if screentype == ScreenType.UNDEFINED:
             logger.warning("Undefined screentype, abandon ship...")
         elif screentype == ScreenType.BIRTHDATE:
-            await self._fetch_auth_details()
+            await fetch_auth_details(mapping_manager=self._mapping_manager,
+                                     worker_state=self._worker_state,
+                                     account_handler=self._account_handler)
             await self.__handle_birthday_screen()
         elif screentype == ScreenType.RETURNING:
             await self.__handle_returning_player_or_wrong_credentials()
         elif screentype == ScreenType.LOGINSELECT:
-            await self._fetch_auth_details()
+            await fetch_auth_details(mapping_manager=self._mapping_manager,
+                                     worker_state=self._worker_state,
+                                     account_handler=self._account_handler)
             await self.__handle_login_screen(global_dict, diff)
         elif screentype == ScreenType.PTC:
-            await self._fetch_auth_details()
+            await fetch_auth_details(mapping_manager=self._mapping_manager,
+                                     worker_state=self._worker_state,
+                                     account_handler=self._account_handler)
             return await self.__handle_ptc_login()
         elif screentype == ScreenType.FAILURE:
             await self.__handle_failure_screen()
