@@ -227,11 +227,10 @@ class AbstractWorkerStrategy(ABC):
                 and MadGlobals.application_args.enable_login_tracking:
             logger.debug("start_pogo: Login tracking enabled")
             if not await self._word_to_screen_matching.check_ptc_login_ban(increment_count=False):
-                # TODO: Why should we always reset app data here?
                 # sleeping close to or longer than 5 minutes may cause a problem with a 5-minute timeout
                 # in the RGC websocket connection? Only sleep 60s and then do some nonsense ...
                 logger.warning("start_pogo: No permission for PTC login. Kill pogo data and wait for 4 minutes...")
-                await self._communicator.reset_app_data("com.nianticlabs.pokemongo")
+                # await self._communicator.reset_app_data("com.nianticlabs.pokemongo")
                 await self._communicator.stop_app("com.nianticlabs.pokemongo")
                 self._worker_state.active_account = None
                 await self._communicator.passthrough("true")
