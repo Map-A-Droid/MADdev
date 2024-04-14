@@ -3,7 +3,7 @@ import logging
 import random as rand
 import time
 from asyncio import CancelledError
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import websockets
 
@@ -144,10 +144,11 @@ class WebsocketServer(object):
         if not success:
             # failed auth, stop connection
             return
-        with logger.contextualize(identifier=origin, name="websocket"):
+        with (logger.contextualize(identifier=origin, name="websocket")):
             logger.info("New connection from {}", websocket_client_connection.remote_address)
             async with self.__users_connecting_mutex:
-                if origin in self.__users_connecting and self.__users_connecting[origin] + CONNECTING_TIMEOUT > int(time.time()):
+                if (origin in self.__users_connecting
+                        and self.__users_connecting[origin] + CONNECTING_TIMEOUT > int(time.time())):
                     logger.info("Client is already connecting")
                     return
                 else:
@@ -422,3 +423,7 @@ class WebsocketServer(object):
                 return
             # Cancelling the scan task should result in the scan strategy to be updated
             await entry.worker_instance.cancel_scan()
+
+    def get_worker_state(self, origin: str) -> Optional[WorkerState]:
+        connection_entry: Optional[WebsocketConnectedClientEntry] = self.__current_users.get(origin, None)
+        return connection_entry.worker_state if connection_entry else None

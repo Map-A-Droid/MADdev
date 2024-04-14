@@ -214,6 +214,7 @@ class AbstractWorkerStrategy(ABC):
             logger.info(f"logintype is {self._worker_state.active_account.login_type}")
         else:
             logger.warning("No active account set when starting pogo")
+            # TODO: Immediately assign a new account?
 
         if self._worker_state.active_account and self._worker_state.active_account.login_type == LoginType.ptc.name\
                 and MadGlobals.application_args.enable_login_tracking:
@@ -225,11 +226,10 @@ class AbstractWorkerStrategy(ABC):
                 logger.warning("start_pogo: No permission for PTC login. Kill pogo data and wait for 4 minutes...")
                 await self._communicator.reset_app_data("com.nianticlabs.pokemongo")
                 await self._communicator.stop_app("com.nianticlabs.pokemongo")
-                c = 0
+                self._worker_state.active_account = None
                 await self._communicator.passthrough("true")
-                while c < 4:
-                    logger.warning(f"start_pogo: sleep 60 more seconds ... c = {c}")
-                    c += 1
+                for c in range(4):
+                    logger.warning("start_pogo: sleep 60 more seconds ... c = {}", c)
                     await asyncio.sleep(60)
                     await self._communicator.passthrough("true")
                 logger.warning("start_pogo: reboot after waiting ...")
@@ -647,7 +647,6 @@ class AbstractWorkerStrategy(ABC):
                      self._worker_state.resolution_calculator.screen_size_x,
                      self._worker_state.resolution_calculator.screen_size_y,
                      x_offset, y_offset)
-        # self._resocalc.get_x_y_ratio(self, self._screen_x, self._screen_y, x_offset, y_offset)
 
     async def _grant_permissions_to_pogo(self) -> None:
         command: str = "su -c 'pm grant com.nianticlabs.pokemongo android.permission.ACCESS_FINE_LOCATION " \

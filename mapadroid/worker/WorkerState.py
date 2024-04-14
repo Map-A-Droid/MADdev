@@ -1,4 +1,5 @@
 import asyncio
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -22,9 +23,9 @@ class WorkerState:
         self.pogo_windows: PogoWindows = pogo_windows
         self.active_event: PogoEvent = active_event
         # Optional in case it's not known as per DB...
-        self.active_account: Optional[SettingsPogoauth] = current_auth
+        self._active_account: Optional[SettingsPogoauth] = current_auth
         # Stores the time an account was last assigned. Avoid assigning accounts all the time
-        self.active_account_last_set: int = 0
+        self._active_account_last_set: int = 0
         self.maintenance_early_detection_triggered: bool = False
         self.area_id: Optional[int] = None
 
@@ -40,3 +41,19 @@ class WorkerState:
         self.restart_count: int = 0
         self.reboot_count: int = 0
         self.same_screen_count: int = 0
+
+    @property
+    def active_account(self) -> Optional[SettingsPogoauth]:
+        return self._active_account
+
+    @active_account.setter
+    def active_account(self, value: Optional[SettingsPogoauth]) -> None:
+        if not value:
+            self._active_account_last_set = 0
+        else:
+            self._active_account_last_set = int(time.time())
+        self.active_event = value
+
+    @property
+    def active_account_last_set(self) -> int:
+        return self._active_account_last_set

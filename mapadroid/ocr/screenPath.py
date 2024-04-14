@@ -192,7 +192,6 @@ class WordToScreenMatching(object):
         except ValueError as e:
             logger.warning("Account last used does not match the assignment of accounts stored in DB")
             self._worker_state.active_account = None
-            self._worker_state.active_account_last_set = 0
         if self._worker_state.active_account_last_set + 300 < time.time() or not last_used_account_valid:
             logger.info("Detected login screen, fetching new account to use since last account was assigned more "
                         "than 5 minutes ago OR current account was marked burnt")
@@ -219,11 +218,9 @@ class WordToScreenMatching(object):
                              "it manually if imported with 0/1 - MAD does not (auto)login to check levels "
                              "(unless levelmode is active.")
                 self._worker_state.active_account = None
-                self._worker_state.active_account_last_set = 0
             else:
                 logger.info("Account for {}: {}", self._worker_state.origin, account_to_use.username)
                 self._worker_state.active_account = account_to_use
-                self._worker_state.active_account_last_set = int(time.time())
         else:
             logger.info("Account was set recently and is still assigned to device {} in DB")
 
@@ -232,21 +229,21 @@ class WordToScreenMatching(object):
         Checks whether a PTC login is currently permissible.
         :return: True, if PTC login can be run through. False, otherwise.
         """
-        logger.debug(f"Checking for PTC login permission")
+        logger.debug("Checking for PTC login permission")
         ip = await self._communicator.get_external_ip()
         if not ip:
             logger.warning("Unable to get IP from device. Deny PTC login request")
             return False
         code = await self._communicator.get_ptc_status() or 500
         if code == 200:
-            logger.debug(f"OK - PTC returned {code} on {ip}")
+            logger.debug("OK - PTC returned {} on {}", code, ip)
             return await self._mapping_manager.ip_handle_login_request(ip, self._worker_state.origin,
                                                                        increment_count=increment_count)
         elif code == 403:
-            logger.warning(f"PTC ban is active ({code}) on {ip}")
+            logger.warning("PTC ban is active ({}) on {}", code, ip)
             return False
         else:
-            logger.info(f"PTC login server returned {code} on {ip} - do not log in!")
+            logger.info("PTC login server returned {} on {} - do not log in!", code, ip)
             return False
 
     async def _click_center_button(self, diff, global_dict, i) -> None:
@@ -426,9 +423,10 @@ class WordToScreenMatching(object):
             await asyncio.sleep(30)
             return ScreenType.ERROR
         elif self._worker_state.active_account and self._worker_state.active_account.login_type == LoginType.ptc.name:
-            logger.warning('Really dont know how i get there ... using first @ggl address ... :)')
-            usernames: Optional[str] = await self.get_devicesettings_value(
-                MappingManagerDevicemappingKey.GGL_LOGIN_MAIL, '@gmail.com')
+            logger.warning("Google login was opened but PTC login is expected, restarting pogo")
+            await self._communicator.restart_app("com.nianticlabs.pokemongo")
+            await asyncio.sleep(50)
+            return ScreenType.PTC
         elif self._worker_state.active_account:
             usernames: Optional[str] = self._worker_state.active_account.username
         else:
@@ -498,13 +496,11 @@ class WordToScreenMatching(object):
             exit_keyboard_x: int = 300
             exit_keyboard_y: int = 300
 
-            waf_detected: bool = False
-
             for item in xmlroot.iter('node'):
                 if "Access denied" in item.attrib["text"]:
                     logger.warning("WAF on PTC login attempt detected")
                     # Reload the page 1-3 times
-                    for i in range(random.randint(1,3)):
+                    for i in range(random.randint(1, 3)):
                         logger.info("Reload #{}", i)
                         await self.__handle_ptc_waf()
                     return ScreenType.PTC
@@ -515,7 +511,7 @@ class WordToScreenMatching(object):
                     exit_keyboard_x = int(int(match.group(1)) + ((int(match.group(3)) - int(match.group(1))) / 2))
                     exit_keyboard_y = int(int(match.group(2)) + ((int(match.group(4)) - int(match.group(2))) / 2))
                 elif (item.attrib["resource-id"] == "email"
-                        or ("EditText" in item.attrib["class"] and item.attrib["index"] == "0")):
+                      or ("EditText" in item.attrib["class"] and item.attrib["index"] == "0")):
                     bounds = item.attrib['bounds']
                     logger.info("Found email/login field, clicking, filling, clicking")
                     logger.debug("email-node Bounds {}", item.attrib['bounds'])
@@ -528,7 +524,7 @@ class WordToScreenMatching(object):
                     await self._communicator.click(exit_keyboard_x, exit_keyboard_y)
                     await asyncio.sleep(2)
                 elif (item.attrib["resource-id"] == "password"
-                        or ("EditText" in item.attrib["class"] and item.attrib["index"] == "1")):
+                      or ("EditText" in item.attrib["class"] and item.attrib["index"] == "1")):
                     bounds = item.attrib['bounds']
                     logger.debug("password-node Bounds {}", item.attrib['bounds'])
                     logger.info("Found password field, clicking, filling, clicking")
@@ -541,7 +537,7 @@ class WordToScreenMatching(object):
                     await self._communicator.click(exit_keyboard_x, exit_keyboard_y)
                     await asyncio.sleep(2)
                 elif "Button" in item.attrib["class"] and (item.attrib["resource-id"] == "accept"
-                                                         or item.attrib["text"] in ("Anmelden", "Log In")):
+                                                           or item.attrib["text"] in ("Anmelden", "Log In")):
                     bounds = item.attrib['bounds']
                     logger.info("Found Log In button")
                     logger.debug("accept-node Bounds {}", item.attrib['bounds'])
@@ -599,12 +595,16 @@ class WordToScreenMatching(object):
             if not result:
                 logger.error("Failed getting/analyzing screenshot")
                 return ScreenType.ERROR
-        if (
-                self._worker_state.resolution_calculator.screen_size_x != 720 and self._worker_state.resolution_calculator.screen_size_y != 1280) and (
-                self._worker_state.resolution_calculator.screen_size_x != 1080 and self._worker_state.resolution_calculator.screen_size_y != 1920) and (
-                self._worker_state.resolution_calculator.screen_size_x != 1440 and self._worker_state.resolution_calculator.screen_size_y != 2560):
+        if ((self._worker_state.resolution_calculator.screen_size_x != 720
+             and self._worker_state.resolution_calculator.screen_size_y != 1280)
+                and (self._worker_state.resolution_calculator.screen_size_x != 1080
+                     and self._worker_state.resolution_calculator.screen_size_y != 1920)
+                and (self._worker_state.resolution_calculator.screen_size_x != 1440
+                     and self._worker_state.resolution_calculator.screen_size_y != 2560)):
             logger.warning("The google consent screen can only be handled on 720x1280, 1080x1920 and 1440x2560 screens "
-                           f"(width is {self._worker_state.resolution_calculator.screen_size_x}, height is {self._worker_state.resolution_calculator.screen_size_y})")
+                           "(width is {}, height is {})",
+                           self._worker_state.resolution_calculator.screen_size_x,
+                           self._worker_state.resolution_calculator.screen_size_y)
             return ScreenType.ERROR
         logger.info("Click accept button")
         if self._worker_state.resolution_calculator.screen_size_x == 720 and self._worker_state.resolution_calculator.screen_size_y == 1280:
@@ -649,14 +649,14 @@ class WordToScreenMatching(object):
         # After having restarted pogo, we should again be on the birthday screen now and PD is turned off
         self._nextscreen = ScreenType.RETURNING
         click_x = int((self._worker_state.resolution_calculator.screen_size_x / 2) + (
-                    self._worker_state.resolution_calculator.screen_size_x / 4))
+                self._worker_state.resolution_calculator.screen_size_x / 4))
         click_y = int(self._worker_state.resolution_calculator.screen_size_y / 1.69)
         await self._communicator.click(click_x, click_y)
         await self._communicator.touch_and_hold(click_x, click_y, click_x, int(click_y - (
-                    self._worker_state.resolution_calculator.screen_size_y / 2)), 200)
+                self._worker_state.resolution_calculator.screen_size_y / 2)), 200)
         await asyncio.sleep(1)
         await self._communicator.touch_and_hold(click_x, click_y, click_x, int(click_y - (
-                    self._worker_state.resolution_calculator.screen_size_y / 2)), 200)
+                self._worker_state.resolution_calculator.screen_size_y / 2)), 200)
         await asyncio.sleep(1)
         await self._communicator.click(click_x, click_y)
         await asyncio.sleep(1)
@@ -666,7 +666,6 @@ class WordToScreenMatching(object):
         await asyncio.sleep(1)
 
     async def __handle_welcome_screen(self) -> ScreenType:
-        # self._nextscreen = ScreenType.TOS
         screenshot_path = await self.get_screenshot_path()
         coordinates: Optional[ScreenCoordinates] = await self._worker_state.pogo_windows.look_for_button(
             screenshot_path,
@@ -679,7 +678,6 @@ class WordToScreenMatching(object):
         return ScreenType.NOTRESPONDING
 
     async def __handle_tos_screen(self) -> ScreenType:
-        # self._nextscreen = ScreenType.PRIVACY
         screenshot_path = await self.get_screenshot_path()
         await self._communicator.click(int(self._worker_state.resolution_calculator.screen_size_x / 2),
                                        int(self._worker_state.resolution_calculator.screen_size_y * 0.47))
@@ -694,7 +692,6 @@ class WordToScreenMatching(object):
         return ScreenType.NOTRESPONDING
 
     async def __handle_privacy_screen(self) -> ScreenType:
-        # self._nextscreen = ScreenType.WILLOWCHAR
         screenshot_path = await self.get_screenshot_path()
         coordinates: Optional[ScreenCoordinates] = await self._worker_state.pogo_windows.look_for_button(
             screenshot_path,
@@ -764,12 +761,11 @@ class WordToScreenMatching(object):
             click_x = int(self._worker_state.resolution_calculator.screen_size_x / 2)
             click_y = int(self._worker_state.resolution_calculator.screen_size_y * 0.93)
             await self._communicator.touch_and_hold(click_x, click_y, click_x, int(click_y - (
-                        self._worker_state.resolution_calculator.screen_size_y / 2)), 200)
+                    self._worker_state.resolution_calculator.screen_size_y / 2)), 200)
             await asyncio.sleep(15)
 
             if not await self._take_screenshot(delay_before=await self.get_devicesettings_value(
-                    MappingManagerDevicemappingKey.POST_SCREENSHOT_DELAY, 1),
-                                               delay_after=2):
+                    MappingManagerDevicemappingKey.POST_SCREENSHOT_DELAY, 1), delay_after=2):
                 logger.error("Failed getting screenshot")
                 return ScreenType.ERROR
 
@@ -1079,6 +1075,8 @@ class WordToScreenMatching(object):
     async def clear_game_data(self):
         await self._communicator.reset_app_data("com.nianticlabs.pokemongo")
         await self._account_handler.notify_logout(self._worker_state.device_id)
+        self._worker_state.active_account = None
+        # TODO: Immediately assign a new account?
 
     async def __handle_ptc_waf(self) -> None:
         """
