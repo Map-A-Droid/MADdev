@@ -52,7 +52,7 @@ class WorkerState:
             self._active_account_last_set = 0
         else:
             self._active_account_last_set = int(time.time())
-        self.active_account = value
+        self._active_account = value
 
     @property
     def active_account_last_set(self) -> int:
