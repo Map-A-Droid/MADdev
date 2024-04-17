@@ -249,6 +249,9 @@ class WordToScreenMatching(object):
         elif screentype == ScreenType.GAMEDATA:
             self._nextscreen = ScreenType.UNDEFINED
         elif screentype == ScreenType.GGL:
+            await fetch_auth_details(mapping_manager=self._mapping_manager,
+                                     worker_state=self._worker_state,
+                                     account_handler=self._account_handler)
             screentype = await self.__handle_google_login(screentype)
         elif screentype == ScreenType.PERMISSION:
             screentype = await self.__handle_permissions_screen(screentype)
