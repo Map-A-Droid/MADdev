@@ -48,13 +48,13 @@ class AccountHandler(AbstractAccountHandler):
                 # TODO: Filter only unassigned or assigned to same device first
                 logins: Dict[int, SettingsPogoauth] = await SettingsPogoauthHelper.get_avail_accounts(
                     session, self._db_wrapper.get_instance_id(), auth_type=None, device_id=device_id)
-                logger.info("Got {} before filtering for burnt or not fitting the usage.", len(logins))
                 # Filter all burnt and all which do not match the purpose. E.g., if the purpose is mon scanning.
                 logins_filtered: List[SettingsPogoauth] = [auth_entry for auth_id, auth_entry in logins.items()
                                                            if not self._is_burnt(auth_entry)
                                                            and self._is_usable_for_purpose(auth_entry,
                                                                                            purpose, location_to_scan)]
                 logins_filtered.sort(key=lambda x: DatetimeWrapper.fromtimestamp(0) if x.last_burn is None else x.last_burn)
+                logger.info("Got {} before filtering (burnt, wrong level) and {} after", len(logins), len(logins_filtered))
                 login_to_use: Optional[SettingsPogoauth] = None
                 if not logins_filtered:
                     logger.warning("No auth found for {}", device_id)
