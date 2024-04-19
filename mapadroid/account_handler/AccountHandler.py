@@ -54,7 +54,7 @@ class AccountHandler(AbstractAccountHandler):
                                                            and self._is_usable_for_purpose(auth_entry,
                                                                                            purpose, location_to_scan)]
                 logins_filtered.sort(key=lambda x: DatetimeWrapper.fromtimestamp(0) if x.last_burn is None else x.last_burn)
-                logger.info("Got {} before filtering (burnt, wrong level) and {} after", len(logins), len(logins_filtered))
+                logger.info("Got {} before filtering and {} after (burnt, wrong level)", len(logins), len(logins_filtered))
                 login_to_use: Optional[SettingsPogoauth] = None
                 if not logins_filtered:
                     logger.warning("No auth found for {}", device_id)
