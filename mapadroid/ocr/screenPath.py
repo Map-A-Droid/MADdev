@@ -277,6 +277,9 @@ class WordToScreenMatching(object):
             screentype = await self.__handle_adventure_sync_screen(screentype)
         elif screentype == ScreenType.WILLOWGO:
             screentype = await self.__handle_tutorial_end()
+        elif screentype == ScreenType.HARDWARE_UNITY_UNSUPPORTED:
+            logger.warning('Detected unsupported hardware screen, PD could not handle that?')
+            screentype = await self.__handle_hardware_unsupported_unity_screen(diff, global_dict)
         elif screentype == ScreenType.SN:
             self._nextscreen = ScreenType.UNDEFINED
         elif screentype == ScreenType.UPDATE:
@@ -1013,6 +1016,11 @@ class WordToScreenMatching(object):
     async def __handle_login_timeout(self, diff, global_dict) -> None:
         self._nextscreen = ScreenType.UNDEFINED
         click_text = 'SIGNOUT,SIGN,ABMELDEN,_DECONNECTER'
+        await self.__click_center_button_text(click_text, diff, global_dict)
+        
+    async def __handle_hardware_unsupported_unity_screen(self, diff, global_dict) -> None:
+        self._nextscreen = ScreenType.UNDEFINED
+        click_text = 'CONTINUE' # no idea if this gets translated to different lang?
         await self.__click_center_button_text(click_text, diff, global_dict)
 
     async def _take_and_analyze_screenshot(self, delay_after=0.0, delay_before=0.0, errorscreen: bool = False) -> \
