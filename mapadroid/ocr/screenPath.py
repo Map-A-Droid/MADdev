@@ -465,6 +465,10 @@ class WordToScreenMatching(object):
             exit_keyboard_y: int = 300
 
             for item in xmlroot.iter('node'):
+                if "android.widget.ProgressBar" in item.attrib["class"]:
+                    logger.warning("PTC page still loading, sleeping for extra 12 seconds")
+                    await asyncio.sleep(12)
+                    return ScreenType.PTC
                 if "Access denied" in item.attrib["text"]:
                     logger.warning("WAF on PTC login attempt detected")
                     # Reload the page 1-3 times
