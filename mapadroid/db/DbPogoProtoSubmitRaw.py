@@ -706,7 +706,7 @@ class DbPogoProtoSubmitRaw:
             item_amount = reward.mega_resource.amount
             pokemon_id = reward.mega_resource.pokemon_id
         elif reward_type == 1:
-            #item_amount = reward.get('exp', 0)
+            # item_amount = reward.get('exp', 0)
             stardust = reward.exp
 
         # TODO: Check form works like this or .real needed with check for None
@@ -1308,7 +1308,8 @@ class DbPogoProtoSubmitRaw:
                                                      gender=display.gender,
                                                      costume=display.costume)
 
-    async def stations(self, session: AsyncSession, received_timestamp: int, map_proto: pogoprotos.GetMapObjectsOutProto) -> int:
+    async def stations(self, session: AsyncSession, received_timestamp: int,
+                       map_proto: pogoprotos.GetMapObjectsOutProto) -> int:
         logger.debug3("DbPogoProtoSubmit::stations called with data received")
         cells: RepeatedCompositeFieldContainer[pogoprotos.ClientMapCellProto] = map_proto.map_cell
         if not cells:
@@ -1323,6 +1324,7 @@ class DbPogoProtoSubmitRaw:
             if cell_id < 0:
                 cell_id = cell_id + 2 ** 64
 
+            station: pogoprotos.StationProto
             for station in cell.stations:
                 station_id: str = station.id
                 start_time_ms: float = station.start_time_ms
@@ -1346,7 +1348,10 @@ class DbPogoProtoSubmitRaw:
                 cooldown_complete = DatetimeWrapper.fromtimestamp(float(station.cooldown_complete_ms / 1000))
 
                 stations_seen += 1
-                logger.debug3("Station detected, id: {}, name: {}, lat: {}, lng: {}, start: {}, end: {}, available: {}, inactive: {}", station_id, name, latitude, longitude, start_time, end_time, bread_battle_available, inactive)
+                logger.debug3(
+                    "Station detected, id: {}, name: {}, lat: {}, lng: {}, start: {}, end: {}, available: {}, "
+                    "inactive: {}",
+                    station_id, name, latitude, longitude, start_time, end_time, bread_battle_available, inactive)
                 station_obj: Optional[Station] = await StationHelper.get(session, station_id)
                 if not station_obj:
                     station_obj: Station = Station()
@@ -1358,27 +1363,29 @@ class DbPogoProtoSubmitRaw:
                 if station.battle_details and station.battle_details.battle_window_end_ms > 0:
                     bdetails: pogoprotos.BreadBattleDetailProto = station.battle_details
                     station_obj.battle_spawn = DatetimeWrapper.fromtimestamp(float(bdetails.battle_spawn_ms / 1000))
-                    station_obj.battle_window_start = DatetimeWrapper.fromtimestamp(float(bdetails.battle_window_start_ms / 1000))
-                    station_obj.battle_window_end = DatetimeWrapper.fromtimestamp(float(bdetails.battle_window_end_ms / 1000))
+                    station_obj.battle_window_start = DatetimeWrapper.fromtimestamp(
+                        float(bdetails.battle_window_start_ms / 1000))
+                    station_obj.battle_window_end = DatetimeWrapper.fromtimestamp(
+                        float(bdetails.battle_window_end_ms / 1000))
                     station_obj.battle_level = bdetails.battle_level
 
-                    if bdetails.reward_pokemon and bdetails.reward_pokemon.pokemon_id and bdetails.reward_pokemon.pokemon_id > 0:
+                    if bdetails.reward_pokemon:
                         pokemon_data: pogoprotos.PokemonProto = bdetails.reward_pokemon
-                        station_obj.reward_pokemon_id = pokemon_data.pokemon_id
-                        station_obj.reward_pokemon_form = pokemon_data.pokemon_display.form
-                        station_obj.reward_pokemon_gender = pokemon_data.pokemon_display.gender
-                        station_obj.reward_pokemon_costume = pokemon_data.pokemon_display.costume
-                        station_obj.reward_pokemon_alignment = pokemon_data.pokemon_display.alignment
-                        # evolution?
+                        if pokemon_data.pokemon_id and pokemon_data.pokemon_id > 0:
+                            station_obj.reward_pokemon_id = pokemon_data.pokemon_id
+                            station_obj.reward_pokemon_form = pokemon_data.pokemon_display.form
+                            station_obj.reward_pokemon_gender = pokemon_data.pokemon_display.gender
+                            station_obj.reward_pokemon_costume = pokemon_data.pokemon_display.costume
+                            station_obj.reward_pokemon_alignment = pokemon_data.pokemon_display.alignment
 
-                    if bdetails.battle_pokemon and bdetails.battle_pokemon.pokemon_id and bdetails.battle_pokemon.pokemon_id > 0:
+                    if bdetails.battle_pokemon:
                         pokemon_data: pogoprotos.PokemonProto = bdetails.battle_pokemon
-                        station_obj.battle_pokemon_id = pokemon_data.pokemon_id
-                        station_obj.battle_pokemon_form = pokemon_data.pokemon_display.form
-                        station_obj.battle_pokemon_gender = pokemon_data.pokemon_display.gender
-                        station_obj.battle_pokemon_costume = pokemon_data.pokemon_display.costume
-                        station_obj.battle_pokemon_alignment = pokemon_data.pokemon_display.alignment
-                        # evolution?
+                        if pokemon_data.pokemon_id and pokemon_data.pokemon_id > 0:
+                            station_obj.battle_pokemon_id = pokemon_data.pokemon_id
+                            station_obj.battle_pokemon_form = pokemon_data.pokemon_display.form
+                            station_obj.battle_pokemon_gender = pokemon_data.pokemon_display.gender
+                            station_obj.battle_pokemon_costume = pokemon_data.pokemon_display.costume
+                            station_obj.battle_pokemon_alignment = pokemon_data.pokemon_display.alignment
 
                 station_obj.start_time = start_time
                 station_obj.end_time = end_time
