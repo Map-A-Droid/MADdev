@@ -1318,7 +1318,7 @@ class DbPogoProtoSubmitRaw:
         stations_seen: int = 0
 
         for cell in cells:
-            # Maybe save cell_id to DB too?
+            # save cell_id to database too? It's already here and it could be useful
             cell_id: int = cell.s2_cell_id
             if cell_id < 0:
                 cell_id = cell_id + 2 ** 64
@@ -1330,6 +1330,7 @@ class DbPogoProtoSubmitRaw:
 
                 # TODO: Wait for raids to confirm that this makes sense
                 station_cache_key = "station_{}_{}_{}".format(station_id, start_time_ms, battle_spawn_ms)
+                logger.debug3("station_cache_key: {}".format(station_cache_key))
                 if await self._cache.exists(station_cache_key):
                     continue
 
@@ -1344,30 +1345,8 @@ class DbPogoProtoSubmitRaw:
                 # Is this needed at all?
                 cooldown_complete = DatetimeWrapper.fromtimestamp(float(station.cooldown_complete_ms / 1000))
 
-                reward_pokemon_id: Optional[int] = None
-                reward_pokemon_form: Optional[int] = None
-                reward_pokemon_gender: Optional[int] = None
-                reward_pokemon_costume: Optional[int] = None
-                reward_pokemon_alignment: Optional[int] = None
-                # evolution?
-                #reward_pokemon_evolution: Optional[int] = 0
-
-                battle_spawn: Optional[datetime] = None
-                battle_window_start: Optional[datetime] = None
-                battle_window_end: Optional[datetime] = None
-                battle_level: Optional[int] = None
-
-                battle_pokemon_id: Optional[int] = None
-                battle_pokemon_form: Optional[int] = None
-                battle_pokemon_gender: Optional[int] = None
-                battle_pokemon_costume: Optional[int] = None
-                battle_pokemon_alignment: Optional[int] = None
-                # evolution?
-                #battle_pokemon_evolution: Optional[int] = 0
-
                 stations_seen += 1
                 logger.debug3("Station detected, id: {}, name: {}, lat: {}, lng: {}, start: {}, end: {}, available: {}, inactive: {}", station_id, name, latitude, longitude, start_time, end_time, bread_battle_available, inactive)
-
                 station_obj: Optional[Station] = await StationHelper.get(session, station_id)
                 if not station_obj:
                     station_obj: Station = Station()
@@ -1376,20 +1355,30 @@ class DbPogoProtoSubmitRaw:
                     station_obj.longitude = longitude
                     station_obj.name = name
 
-                station_obj.battle_spawn = battle_spawn
-                station_obj.battle_window_start = battle_window_start
-                station_obj.battle_window_end = battle_window_end
-                station_obj.battle_level = battle_level
-                station_obj.battle_pokemon_id = battle_pokemon_id
-                station_obj.reward_pokemon_id = reward_pokemon_id
-                station_obj.battle_pokemon_form = battle_pokemon_form
-                station_obj.reward_pokemon_form = reward_pokemon_form
-                station_obj.battle_pokemon_gender = battle_pokemon_gender
-                station_obj.reward_pokemon_gender = reward_pokemon_gender
-                station_obj.battle_pokemon_costume = battle_pokemon_costume
-                station_obj.reward_pokemon_costume = reward_pokemon_costume
-                station_obj.battle_pokemon_alignment = battle_pokemon_alignment
-                station_obj.reward_pokemon_alignment = reward_pokemon_alignment
+                if station.battle_details and station.battle_details.battle_window_end_ms > 0:
+                    bdetails: pogoprotos.BreadBattleDetailProto = station.battle_details
+                    station_obj.battle_spawn = DatetimeWrapper.fromtimestamp(float(bdetails.battle_spawn_ms / 1000))
+                    station_obj.battle_window_start = DatetimeWrapper.fromtimestamp(float(bdetails.battle_window_start_ms / 1000))
+                    station_obj.battle_window_end = DatetimeWrapper.fromtimestamp(float(bdetails.battle_window_end_ms / 1000))
+                    station_obj.battle_level = bdetails.battle_level
+
+                    if bdetails.reward_pokemon and bdetails.reward_pokemon.pokemon_id and bdetails.reward_pokemon.pokemon_id > 0:
+                        pokemon_data: pogoprotos.PokemonProto = bdetails.reward_pokemon
+                        station_obj.reward_pokemon_id = pokemon_data.pokemon_id
+                        station_obj.reward_pokemon_form = pokemon_data.pokemon_display.form
+                        station_obj.reward_pokemon_gender = pokemon_data.pokemon_display.gender
+                        station_obj.reward_pokemon_costume = pokemon_data.pokemon_display.costume
+                        station_obj.reward_pokemon_alignment = pokemon_data.pokemon_display.alignment
+                        # evolution?
+
+                    if bdetails.battle_pokemon and bdetails.battle_pokemon.pokemon_id and bdetails.battle_pokemon.pokemon_id > 0:
+                        pokemon_data: pogoprotos.PokemonProto = bdetails.battle_pokemon
+                        station_obj.battle_pokemon_id = pokemon_data.pokemon_id
+                        station_obj.battle_pokemon_form = pokemon_data.pokemon_display.form
+                        station_obj.battle_pokemon_gender = pokemon_data.pokemon_display.gender
+                        station_obj.battle_pokemon_costume = pokemon_data.pokemon_display.costume
+                        station_obj.battle_pokemon_alignment = pokemon_data.pokemon_display.alignment
+                        # evolution?
 
                 station_obj.start_time = start_time
                 station_obj.end_time = end_time
