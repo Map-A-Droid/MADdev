@@ -1004,7 +1004,7 @@ class DbPogoProtoSubmitRaw:
                 route.image = image_data.image_url
                 route.image_border_color_hex = image_data.border_color_hex
 
-                route_submission_status_data: pogoprotos.RouteSubmissionStatus = route_data.route_submission_status
+                route_submission_status_data: pogoprotos.RouteSubmissionStatus = route_data.route_submission_status[-1]
                 route.route_submission_status = route_submission_status_data.status
                 route_submission_update_time: int = route_submission_status_data.submission_status_update_time_ms
                 route.route_submission_update_time = DatetimeWrapper.fromtimestamp(route_submission_update_time / 1000)
