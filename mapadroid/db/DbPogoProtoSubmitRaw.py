@@ -21,6 +21,7 @@ from mapadroid.db.helper.PokestopHelper import PokestopHelper
 from mapadroid.db.helper.PokestopIncidentHelper import PokestopIncidentHelper
 from mapadroid.db.helper.RaidHelper import RaidHelper
 from mapadroid.db.helper.RouteHelper import RouteHelper
+from mapadroid.db.helper.StationHelper import StationHelper
 from mapadroid.db.helper.TrsEventHelper import TrsEventHelper
 from mapadroid.db.helper.TrsQuestHelper import TrsQuestHelper
 from mapadroid.db.helper.TrsS2CellHelper import TrsS2CellHelper
@@ -29,7 +30,7 @@ from mapadroid.db.helper.TrsStatsDetectSeenTypeHelper import \
     TrsStatsDetectSeenTypeHelper
 from mapadroid.db.helper.WeatherHelper import WeatherHelper
 from mapadroid.db.model import (Gym, GymDetail, Pokemon, Pokestop,
-                                PokestopIncident, Raid, Route, TrsEvent,
+                                PokestopIncident, Raid, Route, Station, TrsEvent,
                                 TrsQuest, TrsSpawn, TrsStatsDetectSeenType,
                                 Weather)
 from mapadroid.db.PooledQueryExecutor import PooledQueryExecutor
@@ -44,6 +45,7 @@ from mapadroid.utils.madConstants import (REDIS_CACHETIME_CELLS,
                                           REDIS_CACHETIME_POKESTOP_DATA,
                                           REDIS_CACHETIME_RAIDS,
                                           REDIS_CACHETIME_ROUTE,
+                                          REDIS_CACHETIME_STATIONS,
                                           REDIS_CACHETIME_STOP_DETAILS,
                                           REDIS_CACHETIME_WEATHER)
 from mapadroid.utils.madGlobals import MadGlobals, MonSeenTypes, QuestLayer
@@ -1305,3 +1307,103 @@ class DbPogoProtoSubmitRaw:
                                                      form=display.form,
                                                      gender=display.gender,
                                                      costume=display.costume)
+
+    async def stations(self, session: AsyncSession, received_timestamp: int, map_proto: pogoprotos.GetMapObjectsOutProto) -> int:
+        logger.debug3("DbPogoProtoSubmit::stations called with data received")
+        cells: RepeatedCompositeFieldContainer[pogoprotos.ClientMapCellProto] = map_proto.map_cell
+        if not cells:
+            return False
+
+        received_at: datetime = DatetimeWrapper.fromtimestamp(received_timestamp)
+        stations_seen: int = 0
+
+        for cell in cells:
+            # Maybe save cell_id to DB too?
+            cell_id: int = cell.s2_cell_id
+            if cell_id < 0:
+                cell_id = cell_id + 2 ** 64
+
+            for station in cell.stations:
+                station_id: str = station.id
+                start_time_ms: float = station.start_time_ms
+                battle_spawn_ms: float = station.battle_details.battle_spawn_ms
+
+                # TODO: Wait for raids to confirm that this makes sense
+                station_cache_key = "station_{}_{}_{}".format(station_id, start_time_ms, battle_spawn_ms)
+                if await self._cache.exists(station_cache_key):
+                    continue
+
+                latitude: float = station.lat
+                longitude: float = station.lng
+                name: str = station.name
+                start_time = DatetimeWrapper.fromtimestamp(float(start_time_ms / 1000))
+                end_time = DatetimeWrapper.fromtimestamp(float(station.end_time_ms / 1000))
+                bread_battle_available: bool = station.is_bread_battle_available
+                inactive: bool = station.is_inactive;
+
+                # Is this needed at all?
+                cooldown_complete = DatetimeWrapper.fromtimestamp(float(station.cooldown_complete_ms / 1000))
+
+                reward_pokemon_id: Optional[int] = None
+                reward_pokemon_form: Optional[int] = None
+                reward_pokemon_gender: Optional[int] = None
+                reward_pokemon_costume: Optional[int] = None
+                reward_pokemon_alignment: Optional[int] = None
+                # evolution?
+                #reward_pokemon_evolution: Optional[int] = 0
+
+                battle_spawn: Optional[datetime] = None
+                battle_window_start: Optional[datetime] = None
+                battle_window_end: Optional[datetime] = None
+                battle_level: Optional[int] = None
+
+                battle_pokemon_id: Optional[int] = None
+                battle_pokemon_form: Optional[int] = None
+                battle_pokemon_gender: Optional[int] = None
+                battle_pokemon_costume: Optional[int] = None
+                battle_pokemon_alignment: Optional[int] = None
+                # evolution?
+                #battle_pokemon_evolution: Optional[int] = 0
+
+                stations_seen += 1
+                logger.debug3("Station detected, id: {}, name: {}, lat: {}, lng: {}, start: {}, end: {}, available: {}, inactive: {}", station_id, name, latitude, longitude, start_time, end_time, bread_battle_available, inactive)
+
+                station_obj: Optional[Station] = await StationHelper.get(session, station_id)
+                if not station_obj:
+                    station_obj: Station = Station()
+                    station_obj.station_id = station_id
+                    station_obj.latitude = latitude
+                    station_obj.longitude = longitude
+                    station_obj.name = name
+
+                station_obj.battle_spawn = battle_spawn
+                station_obj.battle_window_start = battle_window_start
+                station_obj.battle_window_end = battle_window_end
+                station_obj.battle_level = battle_level
+                station_obj.battle_pokemon_id = battle_pokemon_id
+                station_obj.reward_pokemon_id = reward_pokemon_id
+                station_obj.battle_pokemon_form = battle_pokemon_form
+                station_obj.reward_pokemon_form = reward_pokemon_form
+                station_obj.battle_pokemon_gender = battle_pokemon_gender
+                station_obj.reward_pokemon_gender = reward_pokemon_gender
+                station_obj.battle_pokemon_costume = battle_pokemon_costume
+                station_obj.reward_pokemon_costume = reward_pokemon_costume
+                station_obj.battle_pokemon_alignment = battle_pokemon_alignment
+                station_obj.reward_pokemon_alignment = reward_pokemon_alignment
+
+                station_obj.start_time = start_time
+                station_obj.end_time = end_time
+                station_obj.bread_battle_available
+                station_obj.inactive = inactive
+                station_obj.last_updated = received_at
+                async with session.begin_nested() as nested_transaction:
+                    try:
+                        session.add(station_obj)
+                        await nested_transaction.commit()
+                        await self._cache.set(station_cache_key, 1, ex=REDIS_CACHETIME_STATIONS)
+                    except sqlalchemy.exc.IntegrityError as e:
+                        logger.warning("Failed committing station data of {} ({})", station_id, str(e))
+                        await nested_transaction.rollback()
+                        await self._cache.set(station_cache_key, 1, ex=1)
+        logger.debug3("DbPogoProtoSubmit::stations: Done submitting raids with data received")
+        return stations_seen
