@@ -870,7 +870,7 @@ class DbPogoProtoSubmitRaw:
         received_at: datetime = DatetimeWrapper.fromtimestamp(timestamp)
         for cell in cells:
             for gym in cell.fort:
-                if gym.fort_type == pogoprotos.FortType.GYM and gym.raid_info:
+                if gym.fort_type == pogoprotos.FortType.GYM and gym.raid_info.raid_end_ms > 0:
                     if gym.raid_info.raid_pokemon:
                         raids_seen += 1
                         raid_info: pogoprotos.RaidInfoProto = gym.raid_info
@@ -927,7 +927,7 @@ class DbPogoProtoSubmitRaw:
                     raid.move_2 = move_2
                     raid.last_scanned = received_at
                     raid.form = form
-                    raid.is_exclusive = gym.raid_info.is_exclusive
+                    raid.is_exclusive = 0
                     raid.gender = gender
                     raid.costume = costume
                     raid.evolution = evolution
