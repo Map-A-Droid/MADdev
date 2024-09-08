@@ -1339,7 +1339,7 @@ class DbPogoProtoSubmitRaw:
                 start_time = DatetimeWrapper.fromtimestamp(float(start_time_ms / 1000))
                 end_time = DatetimeWrapper.fromtimestamp(float(station.end_time_ms / 1000))
                 bread_battle_available: bool = station.is_bread_battle_available
-                inactive: bool = station.is_inactive;
+                inactive: bool = station.is_inactive
 
                 # Is this needed at all?
                 cooldown_complete = DatetimeWrapper.fromtimestamp(float(station.cooldown_complete_ms / 1000))
@@ -1393,7 +1393,7 @@ class DbPogoProtoSubmitRaw:
 
                 station_obj.start_time = start_time
                 station_obj.end_time = end_time
-                station_obj.bread_battle_available
+                station_obj.bread_battle_available = bread_battle_available
                 station_obj.inactive = inactive
                 station_obj.last_updated = received_at
                 async with session.begin_nested() as nested_transaction:
