@@ -456,6 +456,7 @@ class SerializedMitmDataProcessor:
     async def __process_stations(self, gmo: pogoprotos.GetMapObjectsOutProto,
                                   received_timestamp: int) -> Tuple[List[int], int]:
         stations_time_start = self.get_time_ms()
+        stations_in_gmo: int = 0
         async with self.__db_wrapper as session, session:
             try:
                 stations_in_gmo = await self.__db_submit.stations(session,
