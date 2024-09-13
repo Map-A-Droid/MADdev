@@ -1374,6 +1374,7 @@ class DbPogoProtoSubmitRaw:
                             station_obj.reward_pokemon_gender = pokemon_data.pokemon_display.gender
                             station_obj.reward_pokemon_costume = pokemon_data.pokemon_display.costume
                             station_obj.reward_pokemon_alignment = pokemon_data.pokemon_display.alignment
+                            station_obj.reward_pokemon_bread_mode = pokemon_data.pokemon_display.bread_mode_enum
 
                     if bdetails.battle_pokemon:
                         pokemon_data: pogoprotos.PokemonProto = bdetails.battle_pokemon
@@ -1383,6 +1384,7 @@ class DbPogoProtoSubmitRaw:
                             station_obj.battle_pokemon_gender = pokemon_data.pokemon_display.gender
                             station_obj.battle_pokemon_costume = pokemon_data.pokemon_display.costume
                             station_obj.battle_pokemon_alignment = pokemon_data.pokemon_display.alignment
+                            station_obj.battle_pokemon_bread_mode = pokemon_data.pokemon_display.bread_mode_enum
                             station_obj.battle_pokemon_move_1 = pokemon_data.move1
                             station_obj.battle_pokemon_move_2 = pokemon_data.move2
 
