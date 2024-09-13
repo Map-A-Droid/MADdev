@@ -1319,20 +1319,13 @@ class DbPogoProtoSubmitRaw:
         stations_seen: int = 0
 
         for cell in cells:
-            # save cell_id to database too? It's already here and it could be useful
-            cell_id: int = cell.s2_cell_id
-            if cell_id < 0:
-                cell_id = cell_id + 2 ** 64
-
             station: pogoprotos.StationProto
             for station in cell.stations:
                 station_id: str = station.id
                 start_time_ms: float = station.start_time_ms
                 battle_spawn_ms: float = station.battle_details.battle_spawn_ms
 
-                # TODO: Wait for raids to confirm that this makes sense
                 station_cache_key = "station_{}_{}_{}".format(station_id, start_time_ms, battle_spawn_ms)
-                logger.debug3("station_cache_key: {}".format(station_cache_key))
                 if await self._cache.exists(station_cache_key):
                     continue
 
@@ -1399,7 +1392,8 @@ class DbPogoProtoSubmitRaw:
                         await nested_transaction.commit()
                         await self._cache.set(station_cache_key, 1, ex=REDIS_CACHETIME_STATIONS)
                     except sqlalchemy.exc.IntegrityError as e:
-                        logger.warning("Failed committing station data of {} ({})", station_id, str(e))
+                        logger.error("Failed committing station data of {} ({})", station_id, str(e))
+                        logger.error(e)
                         await nested_transaction.rollback()
                         await self._cache.set(station_cache_key, 1, ex=1)
         logger.debug3("DbPogoProtoSubmit::stations: Done submitting stations with data received")
