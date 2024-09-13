@@ -1383,8 +1383,8 @@ class DbPogoProtoSubmitRaw:
                             station_obj.battle_pokemon_gender = pokemon_data.pokemon_display.gender
                             station_obj.battle_pokemon_costume = pokemon_data.pokemon_display.costume
                             station_obj.battle_pokemon_alignment = pokemon_data.pokemon_display.alignment
-                            station_obj.move_1 = pokemon_data.move1
-                            station_obj.move_2 = pokemon_data.move2
+                            station_obj.battle_pokemon_move_1 = pokemon_data.move1
+                            station_obj.battle_pokemon_move_2 = pokemon_data.move2
 
                 station_obj.start_time = start_time
                 station_obj.end_time = end_time
@@ -1400,5 +1400,5 @@ class DbPogoProtoSubmitRaw:
                         logger.warning("Failed committing station data of {} ({})", station_id, str(e))
                         await nested_transaction.rollback()
                         await self._cache.set(station_cache_key, 1, ex=1)
-        logger.debug3("DbPogoProtoSubmit::stations: Done submitting raids with data received")
+        logger.debug3("DbPogoProtoSubmit::stations: Done submitting stations with data received")
         return stations_seen
