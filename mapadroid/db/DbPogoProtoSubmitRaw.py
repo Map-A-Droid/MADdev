@@ -1344,9 +1344,6 @@ class DbPogoProtoSubmitRaw:
                 bread_battle_available: bool = station.is_bread_battle_available
                 inactive: bool = station.is_inactive
 
-                # Is this needed at all?
-                cooldown_complete = DatetimeWrapper.fromtimestamp(float(station.cooldown_complete_ms / 1000))
-
                 stations_seen += 1
                 logger.debug3(
                     "Station detected, id: {}, name: {}, lat: {}, lng: {}, start: {}, end: {}, available: {}, "
@@ -1386,6 +1383,8 @@ class DbPogoProtoSubmitRaw:
                             station_obj.battle_pokemon_gender = pokemon_data.pokemon_display.gender
                             station_obj.battle_pokemon_costume = pokemon_data.pokemon_display.costume
                             station_obj.battle_pokemon_alignment = pokemon_data.pokemon_display.alignment
+                            station_obj.move_1 = pokemon_data.move1
+                            station_obj.move_2 = pokemon_data.move2
 
                 station_obj.start_time = start_time
                 station_obj.end_time = end_time
