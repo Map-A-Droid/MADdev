@@ -1380,6 +1380,25 @@ class DbPogoProtoSubmitRaw:
                             station_obj.battle_pokemon_bread_mode = pokemon_data.pokemon_display.bread_mode_enum
                             station_obj.battle_pokemon_move_1 = pokemon_data.move1
                             station_obj.battle_pokemon_move_2 = pokemon_data.move2
+                else:
+                    station_obj.battle_spawn = None
+                    station_obj.battle_window_start = None
+                    station_obj.battle_window_end = None
+                    station_obj.battle_level = None
+                    station_obj.reward_pokemon_id = None
+                    station_obj.reward_pokemon_form = None
+                    station_obj.reward_pokemon_gender = None
+                    station_obj.reward_pokemon_costume = None
+                    station_obj.reward_pokemon_alignment = None
+                    station_obj.reward_pokemon_bread_mode = None
+                    station_obj.battle_pokemon_id = None
+                    station_obj.battle_pokemon_form = None
+                    station_obj.battle_pokemon_gender = None
+                    station_obj.battle_pokemon_costume = None
+                    station_obj.battle_pokemon_alignment = None
+                    station_obj.battle_pokemon_bread_mode = None
+                    station_obj.battle_pokemon_move_1 = None
+                    station_obj.battle_pokemon_move_2 = None
 
                 station_obj.start_time = start_time
                 station_obj.end_time = end_time
