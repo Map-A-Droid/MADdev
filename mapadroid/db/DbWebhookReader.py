@@ -209,9 +209,9 @@ class DbWebhookReader:
             ret.append({
                 "station_id": station.station_id,
                 "battle_level": station.battle_level,
-                "battle_spawn": int(station.battle_spawn.timestamp()),
-                "battle_start": int(station.battle_window_start.timestamp()),
-                "battle_end": int(station.battle_window_end.timestamp()),
+                "battle_spawn": int(station.battle_spawn.timestamp()) if station.battle_spawn else None,
+                "battle_start": int(station.battle_window_start.timestamp()) if station.battle_window_start else None,
+                "battle_end": int(station.battle_window_end.timestamp()) if station.battle_window_end else None,
                 "battle_pokemon_move_1": station.battle_pokemon_move_1,
                 "battle_pokemon_move_2": station.battle_pokemon_move_2,
                 "battle_pokemon_bread_mode": station.battle_pokemon_bread_mode,
