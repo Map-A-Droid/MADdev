@@ -35,7 +35,7 @@ class WebhookWorker:
         self.__pokemon_types: Set[MonSeenTypes] = set()
         self.__mapping_manager: MappingManager = mapping_manager
         self.__valid_types: Set[str] = {
-            'pokemon', 'raid', 'weather', 'quest', 'gym', 'pokestop'
+            'pokemon', 'raid', 'weather', 'quest', 'gym', 'pokestop', 'station'
         }
         self.__valid_mon_types: Set[MonSeenTypes] = {
             MonSeenTypes.encounter, MonSeenTypes.wild, MonSeenTypes.nearby_stop, MonSeenTypes.nearby_cell,
@@ -685,6 +685,13 @@ class WebhookWorker:
         async with self.__db_wrapper as session, session:
             # TODO: Single transaction...
             try:
+                # stations
+                if 'station' in self.__webhook_types:
+                    stations = self.__prepare_station_data(
+                        await DbWebhookReader.get_stations_changed_since(session, self.__last_check)
+                    )
+                    full_payload += stations
+
                 # raids
                 if 'raid' in self.__webhook_types:
                     raids = self.__prepare_raid_data(
@@ -761,3 +768,64 @@ class WebhookWorker:
             await asyncio.sleep(self.__worker_interval_sec)
 
         logger.info("Stopping webhook worker thread")
+
+    def __prepare_station_data(self, station_data):
+        ret = []
+
+        for station in station_data:
+            if self.__is_in_excluded_area([station["latitude"], station["longitude"]]):
+                continue
+
+            station_payload = {
+                "station_id": station["station_id"],
+                "latitude": station["latitude"],
+                "longitude": station["longitude"],
+                "start": station["start_time"],
+                "end": station["end_time"],
+                "name": station["name"],
+                "inactive": station["inactive"],
+                "bread_battle_available": station["bread_battle_available"],
+                "last_updated": station["last_scanned"],
+            }
+
+            if station["battle_spawn"] is not None:
+                station_payload["battle_spawn"] = station["battle_spawn"]
+                station_payload["battle_start"] = station["battle_start"]
+                station_payload["battle_end"] = station["battle_end"]
+                station_payload["battle_level"] = station["battle_level"]
+
+            if station["battle_pokemon_id"] is not None:
+                station_payload["battle_pokemon_id"] = station["battle_pokemon_id"]
+
+            if station["battle_pokemon_form"] is not None:
+                station_payload["battle_pokemon_form"] = station["battle_pokemon_form"]
+
+            if station["battle_pokemon_gender"] is not None:
+                station_payload["battle_pokemon_gender"] = station["battle_pokemon_gender"]
+
+            if station["battle_pokemon_costume"] is not None:
+                station_payload["battle_pokemon_costume"] = station["battle_pokemon_costume"]
+
+            if station["battle_pokemon_alignment"] is not None:
+                station_payload["battle_pokemon_alignment"] = station["battle_pokemon_alignment"]
+
+            if station["battle_pokemon_move_1"] is not None:
+                station_payload["battle_pokemon_move_1"] = station["battle_pokemon_move_1"]
+
+            if station["battle_pokemon_move_2"] is not None:
+                station_payload["battle_pokemon_move_2"] = station["battle_pokemon_move_2"]
+
+            if station["battle_pokemon_bread_mode"] is not None:
+                station_payload["battle_pokemon_bread_mode"] = station["battle_pokemon_bread_mode"]
+
+            if station["battle_pokemon_bread_mode"] is not None:
+                station_payload["battle_pokemon_bread_mode"] = station["battle_pokemon_bread_mode"]
+
+            # create final message
+            entire_payload = {"type": "station", "message": station_payload}
+
+            # add to payload
+            ret.append(entire_payload)
+
+        return ret
+

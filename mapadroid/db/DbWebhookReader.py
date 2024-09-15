@@ -7,9 +7,10 @@ from mapadroid.db.helper.GymHelper import GymHelper
 from mapadroid.db.helper.PokemonHelper import PokemonHelper
 from mapadroid.db.helper.PokestopHelper import PokestopHelper
 from mapadroid.db.helper.RaidHelper import RaidHelper
+from mapadroid.db.helper.StationHelper import StationHelper
 from mapadroid.db.helper.WeatherHelper import WeatherHelper
 from mapadroid.db.model import Raid, Gym, GymDetail, Weather, TrsQuest, Pokestop, Pokemon, TrsSpawn, PokemonDisplay, \
-    PokestopIncident
+    PokestopIncident, Station
 from mapadroid.utils.WebhookJsonEncoder import WebhookJsonEncoder
 from mapadroid.utils.logging import get_logger, LoggerEnums
 from mapadroid.utils.madGlobals import MonSeenTypes
@@ -195,5 +196,37 @@ class DbWebhookReader:
                 "display_costume": mon_display.costume if mon_display else None,
                 "display_gender": mon_display.gender if mon_display else None,
                 "size": mon.size
+            })
+        return ret
+
+    @staticmethod
+    async def get_stations_changed_since(session: AsyncSession, _timestamp: int):
+        logger.debug2("DbWebhookReader::get_stations_changed_since called with timestamp {}", _timestamp)
+        stations_changed: List[Station] = await StationHelper.get_changed_since(session, _timestamp=_timestamp)
+
+        ret = []
+        for station in stations_changed:
+            ret.append({
+                "station_id": station.station_id,
+                "battle_level": station.battle_level,
+                "battle_spawn": int(station.battle_spawn.timestamp()),
+                "battle_start": int(station.battle_window_start.timestamp()),
+                "battle_end": int(station.battle_window_end.timestamp()),
+                "battle_pokemon_move_1": station.battle_pokemon_move_1,
+                "battle_pokemon_move_2": station.battle_pokemon_move_2,
+                "battle_pokemon_bread_mode": station.battle_pokemon_bread_mode,
+                "battle_pokemon_id": station.battle_pokemon_id,
+                "battle_pokemon_costume": station.battle_pokemon_costume,
+                "battle_pokemon_form": station.battle_pokemon_form,
+                "battle_pokemon_gender": station.battle_pokemon_gender,
+                "battle_pokemon_alignment": station.battle_pokemon_alignment,
+                "start_time": station.start_time,
+                "end_time": station.end_time,
+                "name": station.name,
+                "longitude": station.latitude,
+                "latitude": station.longitude,
+                "inactive": station.inactive,
+                "bread_battle_available": station.bread_battle_available,
+                "last_scanned": station.last_updated
             })
         return ret
