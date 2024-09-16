@@ -691,8 +691,9 @@ class WebhookWorker:
             try:
                 # stations
                 if 'station' in self.__webhook_types:
-                    stations = self.__prepare_station_data(session, self.__last_check)
+                    stations = await self.__prepare_station_data(session, self.__last_check)
                     full_payload += stations
+
                 # raids
                 if 'raid' in self.__webhook_types:
                     raids = self.__prepare_raid_data(
@@ -770,7 +771,7 @@ class WebhookWorker:
 
         logger.info("Stopping webhook worker thread")
 
-    def __prepare_station_data(self, session: AsyncSession, _timestamp: int):
+    async def __prepare_station_data(self, session: AsyncSession, _timestamp: int):
         logger.debug2("WebhookWorker/DbWebhookReader::__prepare_stations_data called with timestamp {}", _timestamp)
 
         ret = []
