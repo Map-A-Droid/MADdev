@@ -793,9 +793,9 @@ class WebhookWorker:
             }
 
             if station.battle_spawn is not None:
-                station_payload["battle_spawn"] = station.battle_spawn
-                station_payload["battle_start"] = station.battle_window_start.timestamp()
-                station_payload["battle_end"] = station.battle_window_end.timestamp()
+                station_payload["battle_spawn"] = int(station.battle_spawn.timestamp())
+                station_payload["battle_start"] = int(station.battle_window_start.timestamp())
+                station_payload["battle_end"] = int(station.battle_window_end.timestamp())
                 station_payload["battle_level"] = station.battle_level
 
             if station.battle_pokemon_id is not None:
