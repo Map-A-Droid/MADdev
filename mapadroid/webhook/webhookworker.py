@@ -4,9 +4,12 @@ import time
 from asyncio import Task
 from typing import Any, Dict, List, Set, Tuple
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from mapadroid.db.DbWebhookReader import DbWebhookReader
 from mapadroid.db.DbWrapper import DbWrapper
-from mapadroid.db.model import Pokestop, TrsQuest
+from mapadroid.db.helper.StationHelper import StationHelper
+from mapadroid.db.model import Pokestop, TrsQuest, Station
 from mapadroid.geofence.geofenceHelper import GeofenceHelper
 from mapadroid.mapping_manager import MappingManager
 from mapadroid.utils.gamemechanicutil import calculate_mon_level
@@ -119,7 +122,8 @@ class WebhookWorker:
                         logger.success("Successfully sent payload to webhook{}{}. Stats: {}", whchunk_text,
                                        whcount_text, await mad_json_dumps(self.__payload_type_count(payload_chunk)))
                 except Exception as e:
-                    logger.warning("Exception occured while sending webhook: {}", e)
+                    logger.warning("Exception occurred while sending webhook: {}", e)
+                    logger.exception(e)
 
                 current_pl_num += 1
             current_wh_num += 1
@@ -687,11 +691,8 @@ class WebhookWorker:
             try:
                 # stations
                 if 'station' in self.__webhook_types:
-                    stations = self.__prepare_station_data(
-                        await DbWebhookReader.get_stations_changed_since(session, self.__last_check)
-                    )
+                    stations = self.__prepare_station_data(session, self.__last_check)
                     full_payload += stations
-
                 # raids
                 if 'raid' in self.__webhook_types:
                     raids = self.__prepare_raid_data(
@@ -769,57 +770,52 @@ class WebhookWorker:
 
         logger.info("Stopping webhook worker thread")
 
-    def __prepare_station_data(self, station_data):
-        ret = []
+    def __prepare_station_data(self, session: AsyncSession, _timestamp: int):
+        logger.debug2("WebhookWorker/DbWebhookReader::__prepare_stations_data called with timestamp {}", _timestamp)
 
-        for station in station_data:
-            if self.__is_in_excluded_area([station["latitude"], station["longitude"]]):
+        ret = []
+        stations_changed: List[Station] = await StationHelper.get_changed_since(session, _timestamp=_timestamp)
+
+        for station in stations_changed:
+            if self.__is_in_excluded_area([station.latitude, station.longitude]):
                 continue
 
             station_payload = {
-                "station_id": station["station_id"],
-                "latitude": station["latitude"],
-                "longitude": station["longitude"],
-                "start": station["start_time"],
-                "end": station["end_time"],
-                "name": station["name"],
-                "inactive": station["inactive"],
-                "bread_battle_available": station["bread_battle_available"],
-                "last_updated": station["last_scanned"],
+                "station_id": station.station_id,
+                "latitude": station.latitude,
+                "longitude": station.longitude,
+                "start": station.start_time,
+                "end": station.end_time,
+                "name": station.name,
+                "inactive": station.inactive,
+                "bread_battle_available": station.bread_battle_available,
+                "last_updated": station.last_updated,
             }
 
-            if station["battle_spawn"] is not None:
-                station_payload["battle_spawn"] = station["battle_spawn"]
-                station_payload["battle_start"] = station["battle_start"]
-                station_payload["battle_end"] = station["battle_end"]
-                station_payload["battle_level"] = station["battle_level"]
+            if station.battle_spawn is not None:
+                station_payload["battle_spawn"] = station.battle_spawn
+                station_payload["battle_start"] = station.battle_window_start.timestamp()
+                station_payload["battle_end"] = station.battle_window_end.timestamp()
+                station_payload["battle_level"] = station.battle_level
 
-            if station["battle_pokemon_id"] is not None:
-                station_payload["battle_pokemon_id"] = station["battle_pokemon_id"]
+            if station.battle_pokemon_id is not None:
+                station_payload["battle_pokemon_id"] = station.battle_pokemon_id
+                station_payload["battle_pokemon_move_1"] = station.battle_pokemon_move_1
+                station_payload["battle_pokemon_move_2"] = station.battle_pokemon_move_2
+                station_payload["battle_pokemon_bread_mode"] = station.battle_pokemon_bread_mode
 
-            if station["battle_pokemon_form"] is not None:
-                station_payload["battle_pokemon_form"] = station["battle_pokemon_form"]
+            # Those could be nulls so to avoid sending 0/false we don't include it at all.
+            if station.battle_pokemon_form is not None:
+                station_payload["battle_pokemon_form"] = station.battle_pokemon_form
 
-            if station["battle_pokemon_gender"] is not None:
-                station_payload["battle_pokemon_gender"] = station["battle_pokemon_gender"]
+            if station.battle_pokemon_gender is not None:
+                station_payload["battle_pokemon_gender"] = station.battle_pokemon_gender
 
-            if station["battle_pokemon_costume"] is not None:
-                station_payload["battle_pokemon_costume"] = station["battle_pokemon_costume"]
+            if station.battle_pokemon_costume is not None:
+                station_payload["battle_pokemon_costume"] = station.battle_pokemon_costume
 
-            if station["battle_pokemon_alignment"] is not None:
-                station_payload["battle_pokemon_alignment"] = station["battle_pokemon_alignment"]
-
-            if station["battle_pokemon_move_1"] is not None:
-                station_payload["battle_pokemon_move_1"] = station["battle_pokemon_move_1"]
-
-            if station["battle_pokemon_move_2"] is not None:
-                station_payload["battle_pokemon_move_2"] = station["battle_pokemon_move_2"]
-
-            if station["battle_pokemon_bread_mode"] is not None:
-                station_payload["battle_pokemon_bread_mode"] = station["battle_pokemon_bread_mode"]
-
-            if station["battle_pokemon_bread_mode"] is not None:
-                station_payload["battle_pokemon_bread_mode"] = station["battle_pokemon_bread_mode"]
+            if station.battle_pokemon_alignment is not None:
+                station_payload["battle_pokemon_alignment"] = station.battle_pokemon_alignment
 
             # create final message
             entire_payload = {"type": "station", "message": station_payload}
