@@ -2,7 +2,8 @@ import asyncio
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from asyncio import Task
+from typing import Any, Awaitable, Callable, Coroutine, List, Optional
 
 from loguru import logger
 
@@ -319,9 +320,9 @@ class AbstractWorkerStrategy(ABC):
         else:
             return False
 
-    async def _handle_screen(self) -> ScreenType:
+    async def _handle_screen(self, additional_eval: Optional[Callable[[], Awaitable[bool]]] = None) -> ScreenType:
         screen_type: ScreenType = ScreenType.UNDEFINED
-        while not self._worker_state.stop_worker_event.is_set():
+        while not self._worker_state.stop_worker_event.is_set() and (additional_eval is None or not await additional_eval()):
             if self._worker_state.login_error_count > 2:
                 logger.warning('Could not login again - clearing game data and restarting device')
                 await self.stop_pogo()

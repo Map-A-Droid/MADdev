@@ -74,6 +74,9 @@ def format_solution(manager, routing, solution):
 
 def _run_in_process_executor(method, less_coordinates, route_name):
     # Utility method to init logging in process executor...
+
+    if not MadGlobals.application_args:
+        MadGlobals.load_args()
     init_logging(MadGlobals.application_args, print_info=False)
     try:
         return method(less_coordinates, route_name)

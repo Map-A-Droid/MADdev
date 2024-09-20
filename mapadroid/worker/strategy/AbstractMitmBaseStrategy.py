@@ -428,12 +428,15 @@ class AbstractMitmBaseStrategy(AbstractWorkerStrategy, ABC):
         else:
             return started_pogo
 
+    async def _is_injected(self) -> bool:
+        return await self._mitm_mapper.get_injection_status(self._worker_state.origin)
+
     async def _wait_for_injection(self):
         not_injected_count = 0
         injection_thresh_reboot = int(
             await self.get_devicesettings_value(MappingManagerDevicemappingKey.INJECTION_THRESH_REBOOT, 20))
         window_check_frequency = 3
-        while not await self._mitm_mapper.get_injection_status(self._worker_state.origin):
+        while not await self._is_injected():
             await self._check_for_mad_job()
             if not_injected_count >= injection_thresh_reboot:
                 logger.warning("Not injected in time - reboot")
@@ -445,7 +448,8 @@ class AbstractMitmBaseStrategy(AbstractWorkerStrategy, ABC):
                     and not self._worker_state.stop_worker_event.is_set():
                 logger.info("Retry check_windows while waiting for injection at count {}",
                             not_injected_count)
-                await self._handle_screen()
+
+                await self._handle_screen(additional_eval=self._is_injected)
             not_injected_count += 1
             wait_time = 0
             while wait_time < 20:

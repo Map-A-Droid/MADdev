@@ -2,10 +2,11 @@ import asyncio
 import time
 from typing import List, Optional
 
+import orjson
 from aiohttp import web
 from loguru import logger
-import orjson
 
+import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
 from mapadroid.db.helper.SettingsDeviceHelper import SettingsDeviceHelper
 from mapadroid.db.helper.TrsVisitedHelper import TrsVisitedHelper
 from mapadroid.db.model import SettingsDevice
@@ -15,7 +16,6 @@ from mapadroid.mitm_receiver.protos.ProtoHelper import ProtoHelper
 from mapadroid.utils.collections import Location
 from mapadroid.utils.DatetimeWrapper import DatetimeWrapper
 from mapadroid.utils.ProtoIdentifier import ProtoIdentifier
-import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
 
 
 class ReceiveProtosEndpoint(AbstractMitmReceiverRootEndpoint):
@@ -96,8 +96,8 @@ class ReceiveProtosEndpoint(AbstractMitmReceiverRootEndpoint):
         if proto_type == ProtoIdentifier.GMO.value:
             # TODO: Offload transformation
             gmo: pogoprotos.GetMapObjectsOutProto = ProtoHelper.parse(ProtoIdentifier.GMO, decoded_raw_proto)
-            if not gmo.map_cell:
-                logger.debug("Ignoring apparently empty GMO")
+            if gmo.status != 1 or not gmo.map_cell:
+                logger.debug("Ignoring apparently empty GMO or unsuccessful status {}", gmo.status)
                 return
         elif proto_type == ProtoIdentifier.FORT_SEARCH.value:
             logger.debug("Checking fort search proto type 101")
