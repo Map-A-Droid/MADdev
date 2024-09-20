@@ -38,7 +38,7 @@ class MadApkEndpoint(AbstractMadminRootEndpoint):
             except KeyError:
                 return await self._json_response(data=data[apk_type])
 
-    def allowed_file(filename):
+    def allowed_file(self, filename):
         ALLOWED_EXTENSIONS = set(['apk', 'apkm', 'zip'])
         return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     
