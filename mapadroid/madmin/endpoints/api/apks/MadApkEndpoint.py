@@ -121,7 +121,7 @@ class MadApkEndpoint(AbstractMadminRootEndpoint):
         except KeyError:
             return web.Response(text="Non-supported Type / Architecture", status=406)
         filename_split = filename.rsplit('.', 1)
-        if filename_split[1] in ['zip', 'apks']:
+        if filename_split[1] in ['zip', 'apkm']:
             mimetype = 'application/zip'
         elif filename_split[1] == 'apk':
             mimetype = 'application/vnd.android.package-archive'
