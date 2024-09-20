@@ -13,7 +13,6 @@ from mapadroid.mad_apk.utils import convert_to_backend, get_apk_status
 from mapadroid.mad_apk.wizard import APKWizard, PackageImporter, WizardError
 from mapadroid.madmin.AbstractMadminRootEndpoint import (
     AbstractMadminRootEndpoint, check_authorization_header)
-from mapadroid.madmin.functions import allowed_file
 from mapadroid.utils.apk_enums import APKArch, APKType
 from mapadroid.utils.custom_types import MADapks
 
