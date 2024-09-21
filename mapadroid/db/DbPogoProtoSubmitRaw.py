@@ -1,4 +1,3 @@
-import json
 import math
 import time
 from datetime import datetime, timedelta
@@ -531,7 +530,7 @@ class DbPogoProtoSubmitRaw:
                     await nested_transaction.commit()
                 except sqlalchemy.exc.IntegrityError as e:
                     await nested_transaction.rollback()
-                    logger.debug("Failed submitting stat...")
+                    logger.debug("Failed submitting mon stat {}", e)
 
     async def spawnpoints(self, session: AsyncSession, map_proto: pogoprotos.GetMapObjectsOutProto,
                           received_timestamp: int):
@@ -1345,17 +1344,17 @@ class DbPogoProtoSubmitRaw:
                 station_obj: Optional[Station] = await StationHelper.get(session, station_id)
                 if not station_obj:
                     station_obj: Station = Station()
-                    station_obj.station_id = station_id
-                    station_obj.latitude = latitude
-                    station_obj.longitude = longitude
+                    station_obj.id = station_id
+                    station_obj.lat = latitude
+                    station_obj.lon = longitude
                     station_obj.name = name
 
                 if station.battle_details and station.battle_details.battle_window_end_ms > 0:
                     bdetails: pogoprotos.BreadBattleDetailProto = station.battle_details
                     station_obj.battle_spawn = DatetimeWrapper.fromtimestamp(float(bdetails.battle_spawn_ms / 1000))
-                    station_obj.battle_window_start = DatetimeWrapper.fromtimestamp(
+                    station_obj.battle_start = DatetimeWrapper.fromtimestamp(
                         float(bdetails.battle_window_start_ms / 1000))
-                    station_obj.battle_window_end = DatetimeWrapper.fromtimestamp(
+                    station_obj.battle_end = DatetimeWrapper.fromtimestamp(
                         float(bdetails.battle_window_end_ms / 1000))
                     station_obj.battle_level = bdetails.battle_level
 
@@ -1382,8 +1381,8 @@ class DbPogoProtoSubmitRaw:
                             station_obj.battle_pokemon_move_2 = pokemon_data.move2
                 else:
                     station_obj.battle_spawn = None
-                    station_obj.battle_window_start = None
-                    station_obj.battle_window_end = None
+                    station_obj.battle_start = None
+                    station_obj.battle_end = None
                     station_obj.battle_level = None
                     station_obj.reward_pokemon_id = None
                     station_obj.reward_pokemon_form = None
@@ -1399,12 +1398,14 @@ class DbPogoProtoSubmitRaw:
                     station_obj.battle_pokemon_bread_mode = None
                     station_obj.battle_pokemon_move_1 = None
                     station_obj.battle_pokemon_move_2 = None
+                    station_obj.total_stationed_pokemon = None
 
                 station_obj.start_time = start_time
                 station_obj.end_time = end_time
-                station_obj.bread_battle_available = bread_battle_available
-                station_obj.inactive = inactive
-                station_obj.last_updated = received_at
+                station_obj.end_wtf_time = end_time
+                station_obj.is_battle_available = bread_battle_available
+                station_obj.is_inactive = inactive
+                station_obj.updated = received_at
                 async with session.begin_nested() as nested_transaction:
                     try:
                         session.add(station_obj)

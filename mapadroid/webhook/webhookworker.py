@@ -782,21 +782,21 @@ class WebhookWorker:
                 continue
 
             station_payload = {
-                "station_id": station.station_id,
-                "latitude": station.latitude,
-                "longitude": station.longitude,
+                "station_id": station.id,
+                "latitude": station.lat,
+                "longitude": station.lon,
                 "start": station.start_time,
                 "end": station.end_time,
                 "name": station.name,
-                "inactive": station.inactive,
-                "bread_battle_available": station.bread_battle_available,
-                "last_updated": station.last_updated,
+                "inactive": station.is_inactive,
+                "bread_battle_available": station.is_battle_available,
+                "last_updated": station.updated,
             }
 
             if station.battle_spawn is not None:
                 station_payload["battle_spawn"] = int(station.battle_spawn.timestamp())
-                station_payload["battle_start"] = int(station.battle_window_start.timestamp())
-                station_payload["battle_end"] = int(station.battle_window_end.timestamp())
+                station_payload["battle_start"] = int(station.battle_start.timestamp())
+                station_payload["battle_end"] = int(station.battle_end.timestamp())
                 station_payload["battle_level"] = station.battle_level
 
             if station.battle_pokemon_id is not None:

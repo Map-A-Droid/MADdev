@@ -10,12 +10,12 @@ from mapadroid.utils.DatetimeWrapper import DatetimeWrapper
 class StationHelper:
     @staticmethod
     async def get(session: AsyncSession, station_id: str) -> Optional[Station]:
-        stmt = select(Station).where(Station.station_id == station_id)
+        stmt = select(Station).where(Station.id == station_id)
         result = await session.execute(stmt)
         return result.scalars().first()
 
     @staticmethod
     async def get_changed_since(session: AsyncSession, _timestamp: int) -> List[Station]:
-        stmt = select(Station).where(Station.last_updated > DatetimeWrapper.fromtimestamp(_timestamp))
+        stmt = select(Station).where(Station.updated > DatetimeWrapper.fromtimestamp(_timestamp))
         result = await session.execute(stmt)
         return result.scalars().all()
