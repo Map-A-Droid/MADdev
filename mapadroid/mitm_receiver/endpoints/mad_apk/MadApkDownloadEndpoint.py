@@ -2,6 +2,8 @@ from typing import AsyncGenerator, Tuple, Optional
 
 from aiohttp import web
 
+from loguru import logger
+
 from mapadroid.mad_apk.utils import stream_package
 from mapadroid.mitm_receiver.endpoints.AbstractMitmReceiverRootEndpoint import AbstractMitmReceiverRootEndpoint
 
@@ -20,6 +22,8 @@ class MadApkDownloadEndpoint(AbstractMitmReceiverRootEndpoint):
         return response
 
     async def get(self):
+        logger.info("Device {} downloading package {} (arch: {})", self.request.headers["origin"],
+                       self.request.match_info.get('apk_type'), self.request.match_info.get('apk_arch'))
         data_generator, response = await self.__handle_download_request()
         async for data in data_generator:
             await response.write(data)

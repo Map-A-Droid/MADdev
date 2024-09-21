@@ -13,6 +13,7 @@ from apksearch import generate_download_url, package_search_match
 from apksearch.entities import PackageBase, PackageVariant
 from apksearch.search import HEADERS
 from apkutils.apkfile import BadZipFile, LargeZipFile
+from bs4 import BeautifulSoup
 from loguru import logger
 
 from mapadroid.utils import global_variables
@@ -537,12 +538,13 @@ class PackageImporter(object):
                         apk = apkutils.APK().from_io(bytes_of_apk).parse_resource()
                         manifest = apk.get_manifest()
                         try:
-                            self.package_version = manifest['@android:versionName']
-                            self.package_name = manifest['@package']
+                            soup = BeautifulSoup(manifest, 'lxml-xml')
+                            self.package_version = soup.manifest['android:versionName']
+                            self.package_name = soup.manifest['package']
                         except KeyError:
                             pass
                     try:
-                        filename = manifest['@split']
+                        filename = soup.manifest['@split']
                         if filename[-3:] == 'dpi':
                             continue
                     except KeyError:
