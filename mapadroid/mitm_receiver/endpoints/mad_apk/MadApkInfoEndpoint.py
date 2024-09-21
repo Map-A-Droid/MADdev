@@ -20,7 +20,7 @@ class MadApkInfoEndpoint(AbstractMitmReceiverRootEndpoint):
 
     # TODO: Auth/preprocessing for autoconfig?
     async def get(self):
-        logger.warning("Device {} checking package {} (arch: {}) version", self.request.headers["origin"],
+        logger.info("Device {} checking package {} (arch: {}) version", self.request.headers["origin"],
                        self.request.match_info.get('apk_type'), self.request.match_info.get('apk_arch'))
         parsed = self._parse_frontend()
         if type(parsed) == web.Response:
