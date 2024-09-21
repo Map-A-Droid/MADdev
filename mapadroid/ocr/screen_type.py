@@ -11,6 +11,7 @@ class ScreenType(Enum):
     RETRY = 6  # Failed to log in. Green button on top: RETRY - no background button below: TRY A DIFFERENT ACCOUNT
     WRONG = 7  # incorrect credentials?
     GAMEDATA = 8  # game data could not be fetched from server
+    HARDWARE_UNITY_UNSUPPORTED = 9 # Your device does not match hardware requirements for this application CONTINUE
     GGL = 10  # Google account picker
     PERMISSION = 11  # permission grant overlay (Android)
     MARKETING = 12  # marketing notification request (pogo)
