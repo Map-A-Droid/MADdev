@@ -1347,7 +1347,7 @@ class DbPogoProtoSubmitRaw:
                     station_obj.id = station_id
                     station_obj.lat = latitude
                     station_obj.lon = longitude
-                    station_obj.name = name
+                    station_obj.name = name if len(name) < 120 else name[:100]+"..."
 
                 if station.battle_details and station.battle_details.battle_window_end_ms > 0:
                     bdetails: pogoprotos.BreadBattleDetailProto = station.battle_details
