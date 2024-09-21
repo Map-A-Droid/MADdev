@@ -778,7 +778,7 @@ class WebhookWorker:
         stations_changed: List[Station] = await StationHelper.get_changed_since(session, _timestamp=_timestamp)
 
         for station in stations_changed:
-            if self.__is_in_excluded_area([station.latitude, station.longitude]):
+            if self.__is_in_excluded_area([station.lat, station.lon]):
                 continue
 
             station_payload = {
