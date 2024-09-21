@@ -2,6 +2,8 @@ from typing import Optional, Union
 
 from aiohttp import web
 
+from loguru import logger
+
 from mapadroid.mad_apk.utils import lookup_package_info, supported_pogo_version
 from mapadroid.mitm_receiver.endpoints.AbstractMitmReceiverRootEndpoint import \
     AbstractMitmReceiverRootEndpoint
