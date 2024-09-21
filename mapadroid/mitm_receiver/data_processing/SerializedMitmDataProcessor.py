@@ -217,6 +217,7 @@ class SerializedMitmDataProcessor:
         spawnpoints_task = loop.create_task(self.__process_spawnpoints(gmo, received_timestamp))
         cells_task = loop.create_task(self.__process_cells(gmo))
         mons_task = loop.create_task(self.__process_wild_mons(gmo, received_timestamp))
+        stations_task = loop.create_task(self.__process_stations(gmo, received_timestamp))
 
         gmo_loc_start = self.get_time_ms()
         gmo_loc_time = self.get_time_ms() - gmo_loc_start
@@ -244,14 +245,16 @@ class SerializedMitmDataProcessor:
         cells_time = await cells_task
         stops_time = await stops_task
         gyms_time = await gyms_task
+        stations_count_in_gmo, stations_time = await stations_task
         full_time = self.get_time_ms() - start_time_ms
-        logger.debug("Done processing GMO in {}ms (weather={}ms, stops={}ms, gyms={}ms, raids={}ms, " +
+        logger.debug("Done processing GMO in {}ms (weather={}ms, stops={}ms, gyms={}ms, raids={}ms[{}], " +
                      "spawnpoints={}ms, mons={}ms, "
-                     "nearby_mons={}ms, lure_noiv={}ms, cells={}ms, "
+                     "nearby_mons={}ms, lure_noiv={}ms, cells={}ms, stations={}ms[{}], "
                      "gmo_loc={}ms)",
-                     full_time, weather_time, stops_time, gyms_time, raids_time,
+                     full_time, weather_time, stops_time, gyms_time, raids_time, amount_raids,
                      spawnpoints_time, wild_mon_processing_time, nearby_mons_time, lure_processing_time,
-                     cells_time, gmo_loc_time)
+                     cells_time, stations_time, stations_count_in_gmo, gmo_loc_time)
+        # TODO: stats for stations_count_in_gmo?
         loop.create_task(self.__fire_stats_gmo_submission(origin, received_date,
                                                           wild_encounter_ids_in_gmo,
                                                           nearby_cell_encounter_ids,
@@ -449,3 +452,18 @@ class SerializedMitmDataProcessor:
                                                              int(player_stats.poke_stop_visits))
                 await cache.set(cache_key, int(time.time()), ex=60)
                 return
+
+    async def __process_stations(self, gmo: pogoprotos.GetMapObjectsOutProto,
+                                  received_timestamp: int) -> Tuple[List[int], int]:
+        stations_time_start = self.get_time_ms()
+        stations_in_gmo: int = 0
+        async with self.__db_wrapper as session, session:
+            try:
+                stations_in_gmo = await self.__db_submit.stations(session,
+                                                                   received_timestamp,
+                                                                   gmo)
+                await session.commit()
+            except Exception as e:
+                logger.warning("Failed submitting stations: {}", e)
+        stations_time = self.get_time_ms() - stations_time_start
+        return stations_in_gmo, stations_time

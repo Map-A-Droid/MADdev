@@ -1,4 +1,3 @@
-import json
 import math
 import time
 from datetime import datetime, timedelta
@@ -21,6 +20,7 @@ from mapadroid.db.helper.PokestopHelper import PokestopHelper
 from mapadroid.db.helper.PokestopIncidentHelper import PokestopIncidentHelper
 from mapadroid.db.helper.RaidHelper import RaidHelper
 from mapadroid.db.helper.RouteHelper import RouteHelper
+from mapadroid.db.helper.StationHelper import StationHelper
 from mapadroid.db.helper.TrsEventHelper import TrsEventHelper
 from mapadroid.db.helper.TrsQuestHelper import TrsQuestHelper
 from mapadroid.db.helper.TrsS2CellHelper import TrsS2CellHelper
@@ -29,7 +29,7 @@ from mapadroid.db.helper.TrsStatsDetectSeenTypeHelper import \
     TrsStatsDetectSeenTypeHelper
 from mapadroid.db.helper.WeatherHelper import WeatherHelper
 from mapadroid.db.model import (Gym, GymDetail, Pokemon, Pokestop,
-                                PokestopIncident, Raid, Route, TrsEvent,
+                                PokestopIncident, Raid, Route, Station, TrsEvent,
                                 TrsQuest, TrsSpawn, TrsStatsDetectSeenType,
                                 Weather)
 from mapadroid.db.PooledQueryExecutor import PooledQueryExecutor
@@ -44,6 +44,7 @@ from mapadroid.utils.madConstants import (REDIS_CACHETIME_CELLS,
                                           REDIS_CACHETIME_POKESTOP_DATA,
                                           REDIS_CACHETIME_RAIDS,
                                           REDIS_CACHETIME_ROUTE,
+                                          REDIS_CACHETIME_STATIONS,
                                           REDIS_CACHETIME_STOP_DETAILS,
                                           REDIS_CACHETIME_WEATHER)
 from mapadroid.utils.madGlobals import MadGlobals, MonSeenTypes, QuestLayer
@@ -529,7 +530,7 @@ class DbPogoProtoSubmitRaw:
                     await nested_transaction.commit()
                 except sqlalchemy.exc.IntegrityError as e:
                     await nested_transaction.rollback()
-                    logger.debug("Failed submitting stat...")
+                    logger.debug("Failed submitting mon stat {}", e)
 
     async def spawnpoints(self, session: AsyncSession, map_proto: pogoprotos.GetMapObjectsOutProto,
                           received_timestamp: int):
@@ -704,7 +705,7 @@ class DbPogoProtoSubmitRaw:
             item_amount = reward.mega_resource.amount
             pokemon_id = reward.mega_resource.pokemon_id
         elif reward_type == 1:
-            #item_amount = reward.get('exp', 0)
+            # item_amount = reward.get('exp', 0)
             stardust = reward.exp
 
         # TODO: Check form works like this or .real needed with check for None
@@ -870,7 +871,7 @@ class DbPogoProtoSubmitRaw:
         received_at: datetime = DatetimeWrapper.fromtimestamp(timestamp)
         for cell in cells:
             for gym in cell.fort:
-                if gym.fort_type == pogoprotos.FortType.GYM and gym.raid_info:
+                if gym.fort_type == pogoprotos.FortType.GYM and gym.raid_info.raid_end_ms > 0:
                     if gym.raid_info.raid_pokemon:
                         raids_seen += 1
                         raid_info: pogoprotos.RaidInfoProto = gym.raid_info
@@ -927,7 +928,7 @@ class DbPogoProtoSubmitRaw:
                     raid.move_2 = move_2
                     raid.last_scanned = received_at
                     raid.form = form
-                    raid.is_exclusive = gym.raid_info.is_exclusive
+                    raid.is_exclusive = 0
                     raid.gender = gender
                     raid.costume = costume
                     raid.evolution = evolution
@@ -1004,7 +1005,7 @@ class DbPogoProtoSubmitRaw:
                 route.image = image_data.image_url
                 route.image_border_color_hex = image_data.border_color_hex
 
-                route_submission_status_data: pogoprotos.RouteSubmissionStatus = route_data.route_submission_status
+                route_submission_status_data: pogoprotos.RouteSubmissionStatus = route_data.route_submission_status[-1]
                 route.route_submission_status = route_submission_status_data.status
                 route_submission_update_time: int = route_submission_status_data.submission_status_update_time_ms
                 route.route_submission_update_time = DatetimeWrapper.fromtimestamp(route_submission_update_time / 1000)
@@ -1305,3 +1306,115 @@ class DbPogoProtoSubmitRaw:
                                                      form=display.form,
                                                      gender=display.gender,
                                                      costume=display.costume)
+
+    async def stations(self, session: AsyncSession, received_timestamp: int,
+                       map_proto: pogoprotos.GetMapObjectsOutProto) -> int:
+        logger.debug3("DbPogoProtoSubmit::stations called with data received")
+        cells: RepeatedCompositeFieldContainer[pogoprotos.ClientMapCellProto] = map_proto.map_cell
+        if not cells:
+            return False
+
+        received_at: datetime = DatetimeWrapper.fromtimestamp(received_timestamp)
+        stations_seen: int = 0
+
+        for cell in cells:
+            station: pogoprotos.StationProto
+            for station in cell.stations:
+                station_id: str = station.id
+                start_time_ms: float = station.start_time_ms
+                battle_spawn_ms: float = station.battle_details.battle_spawn_ms
+
+                station_cache_key = "station_{}_{}_{}".format(station_id, start_time_ms, battle_spawn_ms)
+                if await self._cache.exists(station_cache_key):
+                    continue
+
+                latitude: float = station.lat
+                longitude: float = station.lng
+                name: str = station.name
+                start_time = DatetimeWrapper.fromtimestamp(float(start_time_ms / 1000))
+                end_time = DatetimeWrapper.fromtimestamp(float(station.end_time_ms / 1000))
+                bread_battle_available: bool = station.is_bread_battle_available
+                inactive: bool = station.is_inactive
+
+                stations_seen += 1
+                logger.debug3(
+                    "Station detected, id: {}, name: {}, lat: {}, lng: {}, start: {}, end: {}, available: {}, "
+                    "inactive: {}",
+                    station_id, name, latitude, longitude, start_time, end_time, bread_battle_available, inactive)
+                station_obj: Optional[Station] = await StationHelper.get(session, station_id)
+                if not station_obj:
+                    station_obj: Station = Station()
+                    station_obj.id = station_id
+                    station_obj.lat = latitude
+                    station_obj.lon = longitude
+                    station_obj.name = name if len(name) < 120 else name[:100]+"..."
+
+                if station.battle_details and station.battle_details.battle_window_end_ms > 0:
+                    bdetails: pogoprotos.BreadBattleDetailProto = station.battle_details
+                    station_obj.battle_spawn = DatetimeWrapper.fromtimestamp(float(bdetails.battle_spawn_ms / 1000))
+                    station_obj.battle_start = DatetimeWrapper.fromtimestamp(
+                        float(bdetails.battle_window_start_ms / 1000))
+                    station_obj.battle_end = DatetimeWrapper.fromtimestamp(
+                        float(bdetails.battle_window_end_ms / 1000))
+                    station_obj.battle_level = bdetails.battle_level
+
+                    if bdetails.reward_pokemon:
+                        pokemon_data: pogoprotos.PokemonProto = bdetails.reward_pokemon
+                        if pokemon_data.pokemon_id and pokemon_data.pokemon_id > 0:
+                            station_obj.reward_pokemon_id = pokemon_data.pokemon_id
+                            station_obj.reward_pokemon_form = pokemon_data.pokemon_display.form
+                            station_obj.reward_pokemon_gender = pokemon_data.pokemon_display.gender
+                            station_obj.reward_pokemon_costume = pokemon_data.pokemon_display.costume
+                            station_obj.reward_pokemon_alignment = pokemon_data.pokemon_display.alignment
+                            station_obj.reward_pokemon_bread_mode = pokemon_data.pokemon_display.bread_mode_enum
+
+                    if bdetails.battle_pokemon:
+                        pokemon_data: pogoprotos.PokemonProto = bdetails.battle_pokemon
+                        if pokemon_data.pokemon_id and pokemon_data.pokemon_id > 0:
+                            station_obj.battle_pokemon_id = pokemon_data.pokemon_id
+                            station_obj.battle_pokemon_form = pokemon_data.pokemon_display.form
+                            station_obj.battle_pokemon_gender = pokemon_data.pokemon_display.gender
+                            station_obj.battle_pokemon_costume = pokemon_data.pokemon_display.costume
+                            station_obj.battle_pokemon_alignment = pokemon_data.pokemon_display.alignment
+                            station_obj.battle_pokemon_bread_mode = pokemon_data.pokemon_display.bread_mode_enum
+                            station_obj.battle_pokemon_move_1 = pokemon_data.move1
+                            station_obj.battle_pokemon_move_2 = pokemon_data.move2
+                else:
+                    station_obj.battle_spawn = None
+                    station_obj.battle_start = None
+                    station_obj.battle_end = None
+                    station_obj.battle_level = None
+                    station_obj.reward_pokemon_id = None
+                    station_obj.reward_pokemon_form = None
+                    station_obj.reward_pokemon_gender = None
+                    station_obj.reward_pokemon_costume = None
+                    station_obj.reward_pokemon_alignment = None
+                    station_obj.reward_pokemon_bread_mode = None
+                    station_obj.battle_pokemon_id = None
+                    station_obj.battle_pokemon_form = None
+                    station_obj.battle_pokemon_gender = None
+                    station_obj.battle_pokemon_costume = None
+                    station_obj.battle_pokemon_alignment = None
+                    station_obj.battle_pokemon_bread_mode = None
+                    station_obj.battle_pokemon_move_1 = None
+                    station_obj.battle_pokemon_move_2 = None
+                    station_obj.total_stationed_pokemon = None
+
+                station_obj.start_time = start_time
+                station_obj.end_time = end_time
+                station_obj.end_wtf_time = end_time
+                station_obj.is_battle_available = bread_battle_available
+                station_obj.is_inactive = inactive
+                station_obj.updated = received_at
+                async with session.begin_nested() as nested_transaction:
+                    try:
+                        session.add(station_obj)
+                        await nested_transaction.commit()
+                        await self._cache.set(station_cache_key, 1, ex=REDIS_CACHETIME_STATIONS)
+                    except sqlalchemy.exc.IntegrityError as e:
+                        logger.error("Failed committing station data of {} ({})", station_id, str(e))
+                        logger.error(e)
+                        await nested_transaction.rollback()
+                        await self._cache.set(station_cache_key, 1, ex=1)
+        logger.debug3("DbPogoProtoSubmit::stations: Done submitting stations with data received")
+        return stations_seen

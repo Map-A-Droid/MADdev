@@ -36,7 +36,7 @@ class RestHelper:
         timeout = aiohttp.ClientTimeout(total=timeout)
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(url, headers=headers, params=params, allow_redirects=True) as resp:
+                async with session.get(url, headers=headers, params=params, allow_redirects=True, ssl=False) as resp:
                     result.status_code = resp.status
                     try:
                         if get_raw_body:

@@ -4,9 +4,12 @@ import time
 from asyncio import Task
 from typing import Any, Dict, List, Set, Tuple
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from mapadroid.db.DbWebhookReader import DbWebhookReader
 from mapadroid.db.DbWrapper import DbWrapper
-from mapadroid.db.model import Pokestop, TrsQuest
+from mapadroid.db.helper.StationHelper import StationHelper
+from mapadroid.db.model import Pokestop, TrsQuest, Station
 from mapadroid.geofence.geofenceHelper import GeofenceHelper
 from mapadroid.mapping_manager import MappingManager
 from mapadroid.utils.gamemechanicutil import calculate_mon_level
@@ -35,7 +38,7 @@ class WebhookWorker:
         self.__pokemon_types: Set[MonSeenTypes] = set()
         self.__mapping_manager: MappingManager = mapping_manager
         self.__valid_types: Set[str] = {
-            'pokemon', 'raid', 'weather', 'quest', 'gym', 'pokestop'
+            'pokemon', 'raid', 'weather', 'quest', 'gym', 'pokestop', 'station'
         }
         self.__valid_mon_types: Set[MonSeenTypes] = {
             MonSeenTypes.encounter, MonSeenTypes.wild, MonSeenTypes.nearby_stop, MonSeenTypes.nearby_cell,
@@ -119,7 +122,7 @@ class WebhookWorker:
                         logger.success("Successfully sent payload to webhook{}{}. Stats: {}", whchunk_text,
                                        whcount_text, await mad_json_dumps(self.__payload_type_count(payload_chunk)))
                 except Exception as e:
-                    logger.warning("Exception occured while sending webhook: {}", e)
+                    logger.warning("Exception occurred while sending webhook: {}", e)
                     logger.exception(e)
 
                 current_pl_num += 1
@@ -686,6 +689,11 @@ class WebhookWorker:
         async with self.__db_wrapper as session, session:
             # TODO: Single transaction...
             try:
+                # stations
+                if 'station' in self.__webhook_types:
+                    stations = await self.__prepare_station_data(session, self.__last_check)
+                    full_payload += stations
+
                 # raids
                 if 'raid' in self.__webhook_types:
                     raids = self.__prepare_raid_data(
@@ -762,3 +770,59 @@ class WebhookWorker:
             await asyncio.sleep(self.__worker_interval_sec)
 
         logger.info("Stopping webhook worker thread")
+
+    async def __prepare_station_data(self, session: AsyncSession, _timestamp: int):
+        logger.debug2("WebhookWorker/DbWebhookReader::__prepare_stations_data called with timestamp {}", _timestamp)
+
+        ret = []
+        stations_changed: List[Station] = await StationHelper.get_changed_since(session, _timestamp=_timestamp)
+
+        for station in stations_changed:
+            if self.__is_in_excluded_area([station.lat, station.lon]):
+                continue
+
+            station_payload = {
+                "station_id": station.id,
+                "latitude": station.lat,
+                "longitude": station.lon,
+                "start": station.start_time,
+                "end": station.end_time,
+                "name": station.name,
+                "inactive": station.is_inactive,
+                "bread_battle_available": station.is_battle_available,
+                "last_updated": station.updated,
+            }
+
+            if station.battle_spawn is not None:
+                station_payload["battle_spawn"] = int(station.battle_spawn.timestamp())
+                station_payload["battle_start"] = int(station.battle_start.timestamp())
+                station_payload["battle_end"] = int(station.battle_end.timestamp())
+                station_payload["battle_level"] = station.battle_level
+
+            if station.battle_pokemon_id is not None:
+                station_payload["battle_pokemon_id"] = station.battle_pokemon_id
+                station_payload["battle_pokemon_move_1"] = station.battle_pokemon_move_1
+                station_payload["battle_pokemon_move_2"] = station.battle_pokemon_move_2
+                station_payload["battle_pokemon_bread_mode"] = station.battle_pokemon_bread_mode
+
+            # Those could be nulls so to avoid sending 0/false we don't include it at all.
+            if station.battle_pokemon_form is not None:
+                station_payload["battle_pokemon_form"] = station.battle_pokemon_form
+
+            if station.battle_pokemon_gender is not None:
+                station_payload["battle_pokemon_gender"] = station.battle_pokemon_gender
+
+            if station.battle_pokemon_costume is not None:
+                station_payload["battle_pokemon_costume"] = station.battle_pokemon_costume
+
+            if station.battle_pokemon_alignment is not None:
+                station_payload["battle_pokemon_alignment"] = station.battle_pokemon_alignment
+
+            # create final message
+            entire_payload = {"type": "station", "message": station_payload}
+
+            # add to payload
+            ret.append(entire_payload)
+
+        return ret
+
