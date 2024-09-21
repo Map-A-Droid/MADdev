@@ -257,11 +257,12 @@ class AbstractWorkerStrategy(ABC):
 
         if start_result:
             logger.success("startPogo: Started pogo successfully...")
-            ip_of_device: Optional[str] = await self._communicator.get_external_ip()
-            if not ip_of_device:
-                logger.warning("Cannot retrieve IP of device.")
-            else:
-                await self._mapping_manager.login_tracking_set_ip(self._worker_state.origin, ip_of_device)
+            if MadGlobals.application_args.enable_login_tracking:
+                ip_of_device: Optional[str] = await self._communicator.get_external_ip()
+                if not ip_of_device:
+                    logger.warning("Cannot retrieve IP of device.")
+                else:
+                    await self._mapping_manager.login_tracking_set_ip(self._worker_state.origin, ip_of_device)
 
         await self._wait_pogo_start_delay()
         start_delay: int = await self.get_devicesettings_value(
