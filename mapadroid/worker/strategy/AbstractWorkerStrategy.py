@@ -310,19 +310,21 @@ class AbstractWorkerStrategy(ABC):
         logger.info("turnScreenOnAndStartPogo: (Re-)Starting Pogo")
         await self.start_pogo()
 
-    async def _ensure_pogo_topmost(self):
+    async def _ensure_pogo_topmost(self, additional_eval: Optional[Callable[[], Awaitable[bool]]] = None) -> bool:
         logger.info('Checking pogo screen...')
         await self.start_pogo()
-        screen_type: ScreenType = await self._handle_screen()
+        screen_type: ScreenType = await self._handle_screen(additional_eval)
         logger.info('Checking pogo screen is finished')
-        if screen_type in [ScreenType.POGO, ScreenType.QUEST]:
+        if (screen_type in [ScreenType.POGO, ScreenType.QUEST, ScreenType.BLACK]
+                or additional_eval is not None and additional_eval()):
             return True
         else:
             return False
 
     async def _handle_screen(self, additional_eval: Optional[Callable[[], Awaitable[bool]]] = None) -> ScreenType:
         screen_type: ScreenType = ScreenType.UNDEFINED
-        while not self._worker_state.stop_worker_event.is_set() and (additional_eval is None or not await additional_eval()):
+        while not self._worker_state.stop_worker_event.is_set() and (additional_eval is None
+                                                                     or not await additional_eval()):
             if self._worker_state.login_error_count > 2:
                 logger.warning('Could not login again - clearing game data and restarting device')
                 await self.stop_pogo()

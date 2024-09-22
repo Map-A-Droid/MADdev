@@ -2,11 +2,12 @@ import asyncio
 import math
 import time
 from abc import ABC, abstractmethod
-from typing import Optional, Set, Tuple, Union, Any
+from typing import Any, Optional, Set, Tuple, Union
 
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 from redis import Redis
 
+import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
 from mapadroid.data_handler.mitm_data.holder.latest_mitm_data.LatestMitmDataEntry import \
     LatestMitmDataEntry
 from mapadroid.mapping_manager.MappingManagerDevicemappingKey import \
@@ -22,7 +23,6 @@ from mapadroid.utils.ProtoIdentifier import ProtoIdentifier
 from mapadroid.worker.ReceivedTypeEnum import ReceivedType
 from mapadroid.worker.strategy.AbstractMitmBaseStrategy import \
     AbstractMitmBaseStrategy
-import mapadroid.mitm_receiver.protos.Rpc_pb2 as pogoprotos
 
 logger = get_logger(LoggerEnums.worker)
 
@@ -42,9 +42,9 @@ class AbstractWorkerMitmStrategy(AbstractMitmBaseStrategy, ABC):
         if not await self._wait_for_injection() or self._worker_state.stop_worker_event.is_set():
             raise InternalStopWorkerException("Worker stopped in pre work loop")
 
-        reached_main_menu = await self._check_pogo_main_screen(10, True)
-        if not reached_main_menu:
-            logger.info("Main menu was not reached, trying to restart pogo")
+        pogo_topmost = await self._communicator.is_pogo_topmost()
+        if not pogo_topmost:
+            logger.info("Pogo is not topmost app, trying to restart pogo")
             if not await self._restart_pogo():
                 # TODO: put in loop, count up for a reboot ;)
                 raise InternalStopWorkerException("Worker stopped in pre work loop")

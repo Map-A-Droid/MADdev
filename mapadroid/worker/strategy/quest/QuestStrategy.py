@@ -496,11 +496,11 @@ class QuestStrategy(AbstractMitmBaseStrategy, ABC):
             raise InternalStopWorkerException("Failed switching accounts")
         else:
             await asyncio.sleep(10)
-            reached_main_menu = await self._check_pogo_main_screen(10, True)
-            if not reached_main_menu:
+            pogo_topmost = await self._ensure_pogo_topmost(additional_eval=self._is_injected)
+            if not pogo_topmost:
                 if not await self._restart_pogo():
                     # TODO: put in loop, count up for a reboot ;)
-                    raise InternalStopWorkerException("Failed reaching the pogo main screen after switching accounts")
+                    raise InternalStopWorkerException("Failed having pogo as topmost app after switching accounts")
 
     async def _get_ids_iv_and_scanmode(self) -> Tuple[List[int], str]:
         injected_settings = {}
