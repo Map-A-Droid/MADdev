@@ -1,11 +1,11 @@
 import asyncio
-import glob
 import json
 import os
 import re
 import time
 from asyncio import CancelledError, Task
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import AsyncGenerator, Dict, List, Optional, Tuple, Union
 
 import asyncio_rlock
@@ -98,14 +98,14 @@ class DeviceUpdater(object):
             if os.path.exists('commands.json'):
                 await self._load_jobs_from_file('commands.json')
             # load personal commands
-            for command_file in glob.glob(os.path.join("personal_commands", "*.json")):
+            for command_file in Path("personal_commands").rglob("*.json"):
                 try:
                     await self._load_jobs_from_file(command_file)
                 except Exception as e:
                     logger.error('Cannot add job {} - Reason: {}', command_file, e)
 
             # Read all .apk files in the upload dir
-            for apk_file in glob.glob(str(MadGlobals.application_args.upload_path) + "/*.apk"):
+            for apk_file in Path(MadGlobals.application_args.upload_path).rglob("*.apk"):
                 created: int = int(os.path.getmtime(apk_file))
 
                 self._available_jobs[os.path.basename(apk_file)] = [SubJob(TYPE=JobType.INSTALLATION,
