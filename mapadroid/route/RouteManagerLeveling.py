@@ -143,7 +143,7 @@ class RouteManagerLeveling(RouteManagerBase):
 
         return await self._update_routepool()
 
-    async def start_routemanager(self):
+    async def start_routemanager(self, skip_calculate: bool = False):
         async with self._manager_mutex:
             if not self._is_started.is_set():
                 self._is_started.set()

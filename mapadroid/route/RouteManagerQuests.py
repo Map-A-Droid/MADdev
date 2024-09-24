@@ -102,7 +102,7 @@ class RouteManagerQuests(SubrouteReplacingMixin, RouteManagerBase):
                 return False
             return True
 
-    async def start_routemanager(self):
+    async def start_routemanager(self, skip_calculate: bool = False):
         if self._shutdown_route.is_set():
             logger.info('Route is shutting down already.')
             return False
@@ -114,7 +114,8 @@ class RouteManagerQuests(SubrouteReplacingMixin, RouteManagerBase):
             logger.info("Starting routemanager")
             self._is_started.set()
 
-            await self.calculate_route(dynamic=True, overwrite_persisted_route=False)
+            if not skip_calculate:
+                await self.calculate_route(dynamic=True, overwrite_persisted_route=False)
             await self._start_check_routepools()
 
             logger.info('Getting {} positions in route', len(self._route))

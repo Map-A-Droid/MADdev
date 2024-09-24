@@ -270,7 +270,7 @@ class RouteManagerBase(ABC):
             return
         self._coords_to_be_ignored.add(Location(lat, lon))
 
-    async def start_routemanager(self) -> bool:
+    async def start_routemanager(self, skip_calculate: bool = False) -> bool:
         """
         Starts priority queue or whatever the implementations require
         :return:
@@ -280,7 +280,8 @@ class RouteManagerBase(ABC):
                 self._is_started.set()
                 self._coords_to_be_ignored.clear()
                 logger.info("Starting routemanager {}", self.name)
-                await self.calculate_route(dynamic=False, overwrite_persisted_route=False)
+                if not skip_calculate:
+                    await self.calculate_route(dynamic=False, overwrite_persisted_route=False)
                 await self._start_priority_queue()
                 await self._start_check_routepools()
                 self._init_route_queue()
