@@ -262,6 +262,9 @@ def form_mapper(mon_id, form_id):
 def is_mon_ditto_raw(pokemon_data: pogoprotos.PokemonProto):
     logger.debug3('Determining if mon is a ditto')
     logger.debug4(pokemon_data)
+    if pokemon_data.pokemon_display.is_strong_pokemon:
+        logger.debug3('Strong/Mighty mon, skipping ditto check')
+        return False
     weather_boost = pokemon_data.pokemon_display.weather_boosted_condition
     valid_atk = pokemon_data.individual_attack < 4
     valid_def = pokemon_data.individual_defense < 4
